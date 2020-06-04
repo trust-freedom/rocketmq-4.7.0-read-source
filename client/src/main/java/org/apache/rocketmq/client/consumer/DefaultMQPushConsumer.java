@@ -66,6 +66,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Internal implementation. Most of the functions herein are delegated to it.
+     * 内部实现。DefaultMQPushConsumer大多数的功能都委托给 DefaultMQPushConsumerImpl
      */
     protected final transient DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
 
@@ -135,6 +136,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Queue allocation algorithm specifying how message queues are allocated to each consumer clients.
+     * 队列分配算法，指定如何将消息队列分配给每个使用者客户端
+     * 默认 AllocateMessageQueueAveragely
      */
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy;
 
@@ -689,8 +692,13 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      */
     @Override
     public void start() throws MQClientException {
+        // 设置ConsumerGroup（考虑namespace）
         setConsumerGroup(NamespaceUtil.wrapNamespace(this.getNamespace(), this.consumerGroup));
+
+        // 【重点】启动内部实现DefaultMQPushConsumerImpl
         this.defaultMQPushConsumerImpl.start();
+
+        // 如果设置了TraceDispatcher跟踪调度器，将其启动（默认为null）
         if (null != traceDispatcher) {
             try {
                 traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());

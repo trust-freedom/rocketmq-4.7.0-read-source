@@ -154,9 +154,17 @@ public class PullAPIWrapper {
         final CommunicationMode communicationMode,
         final PullCallback pullCallback
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+
+        // 根据 brokerName、 brokerId 从MQClientlnstance中获取Broker地址（内存操作）
         FindBrokerResult findBrokerResult =
-            this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
-                this.recalculatePullFromWhichNode(mq), false);
+            this.mQClientFactory.findBrokerAddressInSubscribe(
+                    mq.getBrokerName(),
+                    this.recalculatePullFromWhichNode(mq),  // 计算brokerId
+                                                            // 只是返回当前内存中记录的推荐brokerId，在每次拉取到PullResult结果时，可以从中获取SuggestWhichBrokerId
+                                                            // 也就是说，当master忙时，broker会返回让从slave拉取？？
+                    false);
+
+        // 如果内存中没找到对应brokerName、brokerId的broker地址，远程调用问nameServer，并更新
         if (null == findBrokerResult) {
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
             findBrokerResult =
@@ -197,6 +205,7 @@ public class PullAPIWrapper {
                 brokerAddr = computPullFromWhichFilterServer(mq.getTopic(), brokerAddr);
             }
 
+            // 使用 MQClientAPIImpl 真正拉取消息
             PullResult pullResult = this.mQClientFactory.getMQClientAPIImpl().pullMessage(
                 brokerAddr,
                 requestHeader,

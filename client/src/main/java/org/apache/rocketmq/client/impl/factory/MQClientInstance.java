@@ -233,16 +233,27 @@ public class MQClientInstance {
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
+
                     // Start request-response channel
+                    // 开启使用Netty与Broker通信的通道
                     this.mQClientAPIImpl.start();
+
                     // Start various schedule tasks
+                    // 开启多种定时任务
                     this.startScheduledTask();
+
                     // Start pull service
+                    // 单独的线程负责消息的拉取
                     this.pullMessageService.start();
+
                     // Start rebalance service
+                    // 单独的线程负责隔(rocketmq.client.rebalance.waitInterval=20s)调用一次 MQClientInstance#doRebalance
                     this.rebalanceService.start();
+
                     // Start push service
+                    // 启动Producer，但不再启动MQClientInstance，用于发回到Retry重试Topic
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
+
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
                     break;
@@ -255,9 +266,11 @@ public class MQClientInstance {
     }
 
     private void startScheduledTask() {
+        /**
+         *
+         */
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
                 @Override
                 public void run() {
                     try {
@@ -269,8 +282,10 @@ public class MQClientInstance {
             }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
         }
 
+        /**
+         *
+         */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -281,8 +296,10 @@ public class MQClientInstance {
             }
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
+        /**
+         *
+         */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -294,8 +311,10 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        /**
+         *
+         */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -306,8 +325,10 @@ public class MQClientInstance {
             }
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
+        /**
+         *
+         */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
             @Override
             public void run() {
                 try {
