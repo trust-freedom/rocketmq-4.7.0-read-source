@@ -417,9 +417,10 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     }
                     break;
                 case ResponseCode.PULL_NOT_FOUND:
-
+                    // broker端支持挂起，且拉取消息是构建的拉取标记hasSuspendFlag=true
                     if (brokerAllowSuspend && hasSuspendFlag) {
-                        long pollingTimeMills = suspendTimeoutMillisLong;
+                        long pollingTimeMills = suspendTimeoutMillisLong; // 拉取消息中的挂起时间
+                        // 如果broker端没开启长轮询，使用broker配置的短轮询，默认1s
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }

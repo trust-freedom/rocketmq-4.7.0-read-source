@@ -42,8 +42,8 @@ public class PullRequestHoldService extends ServiceThread {
     }
 
     public void suspendPullRequest(final String topic, final int queueId, final PullRequest pullRequest) {
-        String key = this.buildKey(topic, queueId);
-        ManyPullRequest mpr = this.pullRequestTable.get(key);
+        String key = this.buildKey(topic, queueId); // 构建key = topic@queueId
+        ManyPullRequest mpr = this.pullRequestTable.get(key); // 根据key获取ManyPullRequest
         if (null == mpr) {
             mpr = new ManyPullRequest();
             ManyPullRequest prev = this.pullRequestTable.putIfAbsent(key, mpr);
@@ -52,6 +52,7 @@ public class PullRequestHoldService extends ServiceThread {
             }
         }
 
+        // 当前 pullRequest 添加到 ManyPullRequest
         mpr.addPullRequest(pullRequest);
     }
 
@@ -68,14 +69,17 @@ public class PullRequestHoldService extends ServiceThread {
         log.info("{} service started", this.getServiceName());
         while (!this.isStopped()) {
             try {
+                // 如果开启长轮询，每 5s 尝试一次，判断新消息是否到达
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                     this.waitForRunning(5 * 1000);
-                } else {
+                }
+                // 如果未开启长轮询，则默认等待 ls 再次尝试，可以通过 BrokerConfig#shortPollingTimeMills 改变等待时间
+                else {
                     this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
                 }
 
                 long beginLockTimestamp = this.systemClock.now();
-                this.checkHoldRequest();
+                this.checkHoldRequest(); // 遍历拉取任务表，检查偏移量，看是否有可以唤醒
                 long costTime = this.systemClock.now() - beginLockTimestamp;
                 if (costTime > 5 * 1000) {
                     log.info("[NOTIFYME] check hold request cost {} ms.", costTime);
@@ -93,6 +97,10 @@ public class PullRequestHoldService extends ServiceThread {
         return PullRequestHoldService.class.getSimpleName();
     }
 
+    /**
+     * 遍历拉取任务表，根据主题与队列获取消息消费队列最大偏移量，
+     * 如果该偏移量大于待拉取偏移量， 说明有新的消息到达，调用 notifyMessageArriving 触发消息拉取
+     */
     private void checkHoldRequest() {
         for (String key : this.pullRequestTable.keySet()) {
             String[] kArray = key.split(TOPIC_QUEUEID_SEPARATOR);
@@ -128,6 +136,7 @@ public class PullRequestHoldService extends ServiceThread {
                         newestOffset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                     }
 
+                    // 如果消息队列的最大偏移量 大于 待拉取偏移量，如果消息匹配则调用 executeRequestWhenWakeup 将消息返回给消息拉取客户端，否则等待下一次尝试
                     if (newestOffset > request.getPullFromThisOffset()) {
                         boolean match = request.getMessageFilter().isMatchedByConsumeQueue(tagsCode,
                             new ConsumeQueueExt.CqExtUnit(tagsCode, msgStoreTime, filterBitMap));
@@ -147,6 +156,7 @@ public class PullRequestHoldService extends ServiceThread {
                         }
                     }
 
+                    // 如果挂起超时时间超时，则不继续等待将直接返回客户消息未找到
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
