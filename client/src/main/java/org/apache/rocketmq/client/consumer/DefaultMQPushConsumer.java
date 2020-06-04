@@ -143,6 +143,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Subscription relationship
+     * 订阅关系
      */
     private Map<String /* topic */, String /* sub expression */> subscription = new HashMap<String, String>();
 
@@ -158,11 +159,13 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Minimum consumer thread number
+     * 消费线程池最少的线程数量
      */
     private int consumeThreadMin = 20;
 
     /**
      * Max consumer thread number
+     * 消费线程池最多的线程数量
      */
     private int consumeThreadMax = 20;
 
@@ -215,16 +218,19 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Message pull Interval
+     * 拉取消息间隔
      */
     private long pullInterval = 0;
 
     /**
      * Batch consumption size
+     * 消费线程池中每个消费任务一次处理的消息数量
      */
     private int consumeMessageBatchMaxSize = 1;
 
     /**
      * Batch pull size
+     * 向Broker拉取时，每次最多拉取多少条
      */
     private int pullBatchSize = 32;
 

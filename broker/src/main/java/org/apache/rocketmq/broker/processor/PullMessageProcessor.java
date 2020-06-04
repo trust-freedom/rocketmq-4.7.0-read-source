@@ -235,19 +235,30 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 this.brokerController.getConsumerFilterManager());
         }
 
+        // 【重点】调用 MessageStore.getMessage() 查找消息
         final GetMessageResult getMessageResult =
-            this.brokerController.getMessageStore().getMessage(requestHeader.getConsumerGroup(), requestHeader.getTopic(),
-                requestHeader.getQueueId(), requestHeader.getQueueOffset(), requestHeader.getMaxMsgNums(), messageFilter);
+            this.brokerController.getMessageStore().getMessage(
+                    requestHeader.getConsumerGroup(),  // 消费组
+                    requestHeader.getTopic(),  // Topic
+                    requestHeader.getQueueId(),   // 队列id
+                    requestHeader.getQueueOffset(),   // 待拉取偏移量
+                    requestHeader.getMaxMsgNums(),  // 最大拉取消息条数，默认 32
+                    messageFilter);  // 消息过滤器
+
         if (getMessageResult != null) {
+            // 填充 responseHeader 的 nextBeginOffset、minOffset、maxOffset
+            // （也就是说每次拉取后broker要告诉客户端下次从哪个偏移量再来拉取？？为啥不是broker自己记录呢？？客户端要持久化保存offset吗？？）
             response.setRemark(getMessageResult.getStatus().name());
             responseHeader.setNextBeginOffset(getMessageResult.getNextBeginOffset());
             responseHeader.setMinOffset(getMessageResult.getMinOffset());
             responseHeader.setMaxOffset(getMessageResult.getMaxOffset());
 
+            // 【是否建议从Slave拉取】
+            // 根据主从同步延迟（MessageStore.getMessage时有计算），如果slave数据包含下一次拉取的偏移量，设置下一次拉取任务的 brokerId
             if (getMessageResult.isSuggestPullingFromSlave()) {
-                responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
+                responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly()); // 默认为 1
             } else {
-                responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
+                responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID); // 默认为 0
             }
 
             switch (this.brokerController.getMessageStoreConfig().getBrokerRole()) {
@@ -277,15 +288,15 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
 
             switch (getMessageResult.getStatus()) {
                 case FOUND:
-                    response.setCode(ResponseCode.SUCCESS);
+                    response.setCode(ResponseCode.SUCCESS); // 成功
                     break;
-                case MESSAGE_WAS_REMOVING:
-                    response.setCode(ResponseCode.PULL_RETRY_IMMEDIATELY);
+                case MESSAGE_WAS_REMOVING:  // 消息存放在下个commitlog文件中
+                    response.setCode(ResponseCode.PULL_RETRY_IMMEDIATELY); // 立即重试
                     break;
-                case NO_MATCHED_LOGIC_QUEUE:
-                case NO_MESSAGE_IN_QUEUE:
+                case NO_MATCHED_LOGIC_QUEUE: // 未找到队列
+                case NO_MESSAGE_IN_QUEUE:  // 队列中未包含消息
                     if (0 != requestHeader.getQueueOffset()) {
-                        response.setCode(ResponseCode.PULL_OFFSET_MOVED);
+                        response.setCode(ResponseCode.PULL_OFFSET_MOVED); // 偏移量移动
 
                         // XXX: warn and notify me
                         log.info("the broker store no queue data, fix the request offset {} to {}, Topic: {} QueueId: {} Consumer Group: {}",
@@ -296,26 +307,26 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                             requestHeader.getConsumerGroup()
                         );
                     } else {
-                        response.setCode(ResponseCode.PULL_NOT_FOUND);
+                        response.setCode(ResponseCode.PULL_NOT_FOUND); // 未找到消息
                     }
                     break;
                 case NO_MATCHED_MESSAGE:
                     response.setCode(ResponseCode.PULL_RETRY_IMMEDIATELY);
                     break;
-                case OFFSET_FOUND_NULL:
-                    response.setCode(ResponseCode.PULL_NOT_FOUND);
+                case OFFSET_FOUND_NULL:  // 消息物理偏移量为空
+                    response.setCode(ResponseCode.PULL_NOT_FOUND); // 未找到消息
                     break;
-                case OFFSET_OVERFLOW_BADLY:
-                    response.setCode(ResponseCode.PULL_OFFSET_MOVED);
+                case OFFSET_OVERFLOW_BADLY:  // offset越界
+                    response.setCode(ResponseCode.PULL_OFFSET_MOVED); // 偏移量移动
                     // XXX: warn and notify me
                     log.info("the request offset: {} over flow badly, broker max offset: {}, consumer: {}",
                         requestHeader.getQueueOffset(), getMessageResult.getMaxOffset(), channel.remoteAddress());
                     break;
-                case OFFSET_OVERFLOW_ONE:
-                    response.setCode(ResponseCode.PULL_NOT_FOUND);
+                case OFFSET_OVERFLOW_ONE: // offset越界一个
+                    response.setCode(ResponseCode.PULL_NOT_FOUND); // 未找到消息
                     break;
-                case OFFSET_TOO_SMALL:
-                    response.setCode(ResponseCode.PULL_OFFSET_MOVED);
+                case OFFSET_TOO_SMALL:  // 。岱et 未在消息队列中
+                    response.setCode(ResponseCode.PULL_OFFSET_MOVED); // 偏移量移动
                     log.info("the request offset too small. group={}, topic={}, requestOffset={}, brokerMinOffset={}, clientIp={}",
                         requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueOffset(),
                         getMessageResult.getMinOffset(), channel.remoteAddress());
@@ -460,10 +471,15 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             response.setRemark("store getMessage return null");
         }
 
+        /**
+         * 如果 commitlog 标记可用并且当前节点为 主节点，则更新消息消费进度
+         * 应该更新的是 store/config/consumerOffset.json
+         * 从Slave读取不更新吗？？
+         */
         boolean storeOffsetEnable = brokerAllowSuspend;
         storeOffsetEnable = storeOffsetEnable && hasCommitOffsetFlag;
         storeOffsetEnable = storeOffsetEnable
-            && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE;
+            && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE; // 不是Slave
         if (storeOffsetEnable) {
             this.brokerController.getConsumerOffsetManager().commitOffset(RemotingHelper.parseChannelRemoteAddr(channel),
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId(), requestHeader.getCommitOffset());
