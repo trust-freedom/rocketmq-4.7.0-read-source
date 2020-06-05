@@ -71,9 +71,11 @@ public class MessageStoreConfig {
     private int deleteConsumeQueueFilesInterval = 100;
     private int destroyMapedFileIntervalForcibly = 1000 * 120;
     private int redeleteHangedFileInterval = 1000 * 120;
+
     // When to delete,default is at 4 am
     @ImportantField
     private String deleteWhen = "04";
+
     private int diskMaxUsedSpaceRatio = 75;
     // The number of hours to keep a log file before deleting it (in hours)
     @ImportantField
@@ -120,12 +122,21 @@ public class MessageStoreConfig {
     private int haTransferBatchSize = 1024 * 32;
     @ImportantField
     private String haMasterAddress = null;
+
+    // Slave最大落后多少字节，默认 256kb
     private int haSlaveFallbehindMax = 1024 * 1024 * 256;
+
+    // Broker角色，默认是 异步复制的Master
     @ImportantField
     private BrokerRole brokerRole = BrokerRole.ASYNC_MASTER;
+
+    // 刷盘模式，默认是 异步刷盘
     @ImportantField
     private FlushDiskType flushDiskType = FlushDiskType.ASYNC_FLUSH;
+
+    // 既是刷盘超时时间，也是主从同步超时时间
     private int syncFlushTimeout = 1000 * 5;
+
     private String messageDelayLevel = "1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h";
     private long flushDelayOffsetInterval = 1000 * 10;
     @ImportantField

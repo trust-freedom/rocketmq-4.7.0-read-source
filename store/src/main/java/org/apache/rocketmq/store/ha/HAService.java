@@ -78,6 +78,7 @@ public class HAService {
 
     public boolean isSlaveOK(final long masterPutWhere) {
         boolean result = this.connectionCount.get() > 0;
+        // 有和Slave的连接 且 Master和Slave同步相差的不超过 HaSlaveFallbehindMax（默认 256kb）
         result =
             result
                 && ((masterPutWhere - this.push2SlaveMaxOffset.get()) < this.defaultMessageStore

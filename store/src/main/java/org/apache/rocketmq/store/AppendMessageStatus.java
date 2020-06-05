@@ -18,11 +18,12 @@ package org.apache.rocketmq.store;
 
 /**
  * When write a message to the commit log, returns code
+ * 向 Commitlog 追加消息时的返回码
  */
 public enum AppendMessageStatus {
     PUT_OK,
-    END_OF_FILE,
-    MESSAGE_SIZE_EXCEEDED,
-    PROPERTIES_SIZE_EXCEEDED,
-    UNKNOWN_ERROR,
+    END_OF_FILE,  // 超过Commitlog文件大小
+    MESSAGE_SIZE_EXCEEDED,  // 消息长度超过最大允许长度（4mb）
+    PROPERTIES_SIZE_EXCEEDED,  // 消息属性超过最大允许长度
+    UNKNOWN_ERROR,  // 未知异常
 }

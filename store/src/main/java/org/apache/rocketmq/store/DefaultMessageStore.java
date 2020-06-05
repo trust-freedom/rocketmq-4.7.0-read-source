@@ -65,30 +65,41 @@ import org.apache.rocketmq.store.stats.BrokerStatsManager;
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    // 消息存储配置属性
     private final MessageStoreConfig messageStoreConfig;
-    // CommitLog
+
+    // CommitLog文件的存储实现类
     private final CommitLog commitLog;
 
+    // 消息队列存储缓存表，按主题分组
     private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
+    // 消息队列文件 ConsumeQueue 刷盘线程
     private final FlushConsumeQueueService flushConsumeQueueService;
 
+    // 清除 CommitLog 文件服务
     private final CleanCommitLogService cleanCommitLogService;
 
+    // 清除 ConsumeQueue 文件服务
     private final CleanConsumeQueueService cleanConsumeQueueService;
 
+    // 索引文件实现类
     private final IndexService indexService;
 
+    // MappedFile 分配服务
     private final AllocateMappedFileService allocateMappedFileService;
 
+    // CommitLog 消息分发，根据 CommitLog 文件构建 ConsumeQueue、IndexFile
     private final ReputMessageService reputMessageService;
 
+    // 存储 HA 机制
     private final HAService haService;
 
     private final ScheduleMessageService scheduleMessageService;
 
     private final StoreStatsService storeStatsService;
 
+    // 消息堆内存缓存
     private final TransientStorePool transientStorePool;
 
     private final RunningFlags runningFlags = new RunningFlags();
@@ -97,15 +108,21 @@ public class DefaultMessageStore implements MessageStore {
     private final ScheduledExecutorService scheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("StoreScheduledThread"));
     private final BrokerStatsManager brokerStatsManager;
+
+    // 消息拉取长轮询模式消息达到 监听器
     private final MessageArrivingListener messageArrivingListener;
+
+    // Broker配置属性
     private final BrokerConfig brokerConfig;
 
     private volatile boolean shutdown = true;
 
+    // 文件刷盘检测点
     private StoreCheckpoint storeCheckpoint;
 
     private AtomicLong printTimes = new AtomicLong(0);
 
+    // CommitLog文件转发请求
     private final LinkedList<CommitLogDispatcher> dispatcherList;
 
     private RandomAccessFile lockFile;
@@ -352,16 +369,24 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 检查消息
+     * @param msg
+     * @return
+     */
     private PutMessageStatus checkMessage(MessageExtBrokerInner msg) {
+        // 检查Topic名字长度
         if (msg.getTopic().length() > Byte.MAX_VALUE) {
             log.warn("putMessage message topic length too long " + msg.getTopic().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
         }
 
+        // 检查消息属性长度
         if (msg.getPropertiesString() != null && msg.getPropertiesString().length() > Short.MAX_VALUE) {
             log.warn("putMessage message properties length too long " + msg.getPropertiesString().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
         }
+
         return PutMessageStatus.PUT_OK;
     }
 
@@ -379,12 +404,18 @@ public class DefaultMessageStore implements MessageStore {
         return PutMessageStatus.PUT_OK;
     }
 
+    /**
+     * 检查存储状态
+     * @return
+     */
     private PutMessageStatus checkStoreStatus() {
+        // 已经shutdown，返回 SERVICE_NOT_AVAILABLE
         if (this.shutdown) {
             log.warn("message store has shutdown, so putMessage is forbidden");
             return PutMessageStatus.SERVICE_NOT_AVAILABLE;
         }
 
+        // broker为Slave，返回 SERVICE_NOT_AVAILABLE
         if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
@@ -393,6 +424,7 @@ public class DefaultMessageStore implements MessageStore {
             return PutMessageStatus.SERVICE_NOT_AVAILABLE;
         }
 
+        // runningFlags.isWriteable()==false，返回 SERVICE_NOT_AVAILABLE
         if (!this.runningFlags.isWriteable()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
@@ -403,9 +435,11 @@ public class DefaultMessageStore implements MessageStore {
             this.printTimes.set(0);
         }
 
+        // 系统的 PageCache 是否繁忙，繁忙返回 OS_PAGECACHE_BUSY
         if (this.isOSPageCacheBusy()) {
             return PutMessageStatus.OS_PAGECACHE_BUSY;
         }
+
         return PutMessageStatus.PUT_OK;
     }
 
@@ -469,19 +503,37 @@ public class DefaultMessageStore implements MessageStore {
         return resultFuture;
     }
 
+    /**
+     * 消息存储
+     * @param msg Message instance to store
+     * @return
+     */
     @Override
     public PutMessageResult putMessage(MessageExtBrokerInner msg) {
+        /**
+         * 检查存储状态，不是 PUT_OK 的，直接返回，不存储
+         * 1、已经shutdown，返回 SERVICE_NOT_AVAILABLE
+         * 2、broker为Slave，返回 SERVICE_NOT_AVAILABLE
+         * 3、runningFlags.isWriteable()==false，返回 SERVICE_NOT_AVAILABLE
+         * 4、系统的 PageCache 是否繁忙，繁忙返回 OS_PAGECACHE_BUSY
+         */
         PutMessageStatus checkStoreStatus = this.checkStoreStatus();
         if (checkStoreStatus != PutMessageStatus.PUT_OK) {
             return new PutMessageResult(checkStoreStatus, null);
         }
 
+        /**
+         * 检查消息，不符合规范的，直接返回 MESSAGE_ILLEGAL，不存储
+         * 1、Topic名字长度
+         * 2、消息属性长度
+         */
         PutMessageStatus msgCheckStatus = this.checkMessage(msg);
         if (msgCheckStatus == PutMessageStatus.MESSAGE_ILLEGAL) {
             return new PutMessageResult(msgCheckStatus, null);
         }
 
         long beginTime = this.getSystemClock().now();
+        // Commitlog 存储
         PutMessageResult result = this.commitLog.putMessage(msg);
         long elapsedTime = this.getSystemClock().now() - beginTime;
         if (elapsedTime > 500) {
@@ -525,13 +577,20 @@ public class DefaultMessageStore implements MessageStore {
         return result;
     }
 
+    /**
+     * 系统的 PageCache 是否繁忙
+     * @return
+     */
     @Override
     public boolean isOSPageCacheBusy() {
+        // 从CommitLog文件的存储实现类中获取 beginTimeInLock
+        // 是写一条msg到Commitlog，获取到putMessageLock后的起始时间戳，单位：毫秒
         long begin = this.getCommitLog().getBeginTimeInLock();
         long diff = this.systemClock.now() - begin;
 
-        return diff < 10000000
-            && diff > this.messageStoreConfig.getOsPageCacheBusyTimeOutMills();
+        // 默认写一条msg到Commitlog获取锁的时间超过 1s ，还未将 beginTimeInLock 置为 0，就认为 OSPageCacheBusy
+        return diff < 10000000  // 1000W
+            && diff > this.messageStoreConfig.getOsPageCacheBusyTimeOutMills(); // 默认 1000
     }
 
     @Override
