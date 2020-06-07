@@ -123,6 +123,7 @@ public class DefaultMessageStore implements MessageStore {
     private AtomicLong printTimes = new AtomicLong(0);
 
     // CommitLog文件转发请求
+    // CommitLogDispatcherBuildConsumeQueue + CommitLogDispatcherBuildIndex
     private final LinkedList<CommitLogDispatcher> dispatcherList;
 
     private RandomAccessFile lockFile;
@@ -170,8 +171,8 @@ public class DefaultMessageStore implements MessageStore {
         this.indexService.start();
 
         this.dispatcherList = new LinkedList<>();
-        this.dispatcherList.addLast(new CommitLogDispatcherBuildConsumeQueue());
-        this.dispatcherList.addLast(new CommitLogDispatcherBuildIndex());
+        this.dispatcherList.addLast(new CommitLogDispatcherBuildConsumeQueue()); // 转发构建 ConsumeQueue
+        this.dispatcherList.addLast(new CommitLogDispatcherBuildIndex()); // 转发构建 Index
 
         File file = new File(StorePathConfigHelper.getLockFile(messageStoreConfig.getStorePathRootDir()));
         MappedFile.ensureDirOK(file.getParent());
@@ -1548,11 +1549,16 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     public void doDispatch(DispatchRequest req) {
+        // CommitLogDispatcherBuildConsumeQueue + CommitLogDispatcherBuildIndex
         for (CommitLogDispatcher dispatcher : this.dispatcherList) {
             dispatcher.dispatch(req);
         }
     }
 
+    /**
+     * 根据 DispatchRequest 写 ConsumeQueue
+     * @param dispatchRequest
+     */
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
         cq.putMessagePositionInfoWrapper(dispatchRequest);
@@ -1834,6 +1840,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * ConsumeQueue 刷盘线程
+     */
     class FlushConsumeQueueService extends ServiceThread {
         private static final int RETRY_TIMES_OVER = 3;
         private long lastFlushTimestamp = 0;
@@ -1879,7 +1888,7 @@ public class DefaultMessageStore implements MessageStore {
 
             while (!this.isStopped()) {
                 try {
-                    int interval = DefaultMessageStore.this.getMessageStoreConfig().getFlushIntervalConsumeQueue();
+                    int interval = DefaultMessageStore.this.getMessageStoreConfig().getFlushIntervalConsumeQueue(); // 默认1秒
                     this.waitForRunning(interval);
                     this.doFlush(1);
                 } catch (Exception e) {
@@ -1953,6 +1962,7 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                // 返回 reputFromOffset 偏移量开始的全部有效数据（commitlog 文件），然后循环读取每一条消息
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
@@ -1965,6 +1975,7 @@ public class DefaultMessageStore implements MessageStore {
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
+                                    // 转发给 CommitLogDispatcherBuildConsumeQueue + CommitLogDispatcherBuildIndex
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()

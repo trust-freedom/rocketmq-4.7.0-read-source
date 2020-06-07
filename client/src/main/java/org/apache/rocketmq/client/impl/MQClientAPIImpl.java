@@ -638,6 +638,15 @@ public class MQClientAPIImpl {
         }
     }
 
+    /**
+     * 处理发送Response
+     * @param brokerName
+     * @param msg
+     * @param response
+     * @return
+     * @throws MQBrokerException
+     * @throws RemotingCommandException
+     */
     private SendResult processSendResponse(
         final String brokerName,
         final Message msg,

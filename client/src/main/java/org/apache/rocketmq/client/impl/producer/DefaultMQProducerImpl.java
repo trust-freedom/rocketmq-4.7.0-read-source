@@ -186,8 +186,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
+                // 获取一个MQClientInstance
+                // MQClientInstance是一个JVM进程的生产者、消费者共用一个实例，封装了RocketMQ网络处理API
+                // 虽然用一个实例，但网络交互基于Netty，应该也不会互相影响
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // 向 MQClientlnstance 注册，将 当前生产者加 入到 MQClientlnstance 管理中，方便后续调用网络请求、进行心跳检测等
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -198,6 +202,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
+                // 启动 MQClientlnstance
                 if (startFactory) {
                     mQClientFactory.start();
                 }
@@ -553,7 +558,14 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
+
+        /**
+         * 查找Topic路由信息（包含Queue信息）
+         * 如果生产者中缓存了 topic 的路由信息，如果该路由信息中包含了消息队列，则直接返回该路由信息
+         * 如果没有缓存或没有包含消息队列， 则向 NameServer 查询该 topic 的路由信息
+         */
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
+
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
             MessageQueue mq = null;
@@ -563,8 +575,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             int times = 0;
             String[] brokersSent = new String[timesTotal];
             for (; times < timesTotal; times++) {
-                String lastBrokerName = null == mq ? null : mq.getBrokerName();
-                MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
+                String lastBrokerName = null == mq ? null : mq.getBrokerName(); // 第一次mq==null，重试的时候就不为null了
+                MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName); // 从topicPublishInfo选择一个Queue，不选择在lastBrokerName的
                 if (mqSelected != null) {
                     mq = mqSelected;
                     brokersSent[times] = mq.getBrokerName();
@@ -589,9 +601,16 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             case ONEWAY:
                                 return null;
                             case SYNC:
+                                /**
+                                 * 首先，能进入到这儿，其实发送已经基本成功了，只不过有可能Broker返回的状态中表示可能有些小问题
+                                 * 如 ResponseCode.FLUSH_DISK_TIMEOUT、ResponseCode.FLUSH_SLAVE_TIMEOUT、ResponseCode.SLAVE_NOT_AVAILABLE
+                                 * 而这些小问题可能是和Broker端刷盘，或主从同步 相关的，是否要重试由用户的配置决定
+                                 * 如果不在乎，可以直接返回
+                                 * 如果在乎，需提前配置开启 isRetryAnotherBrokerWhenNotStoreOK = true
+                                 */
                                 if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
                                     if (this.defaultMQProducer.isRetryAnotherBrokerWhenNotStoreOK()) {
-                                        continue;
+                                        continue; // 下次 selectOneMessageQueue() 时，不会选择前一个Broker的Queue
                                     }
                                 }
 
@@ -613,12 +632,14 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         log.warn(msg.toString());
                         exception = e;
                         continue;
-                    } catch (MQBrokerException e) {
+                    } catch (MQBrokerException e) { // 内部发送，如果不是小问题，如 ResponseCode.FLUSH_DISK_TIMEOUT、ResponseCode.FLUSH_SLAVE_TIMEOUT、ResponseCode.SLAVE_NOT_AVAILABLE
+                                                     // 内部发送是会上抛 MQBrokerException，并携带 new MQBrokerException(response.getCode(), response.getRemark())
                         endTimestamp = System.currentTimeMillis();
                         this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, true);
                         log.warn(String.format("sendKernelImpl exception, resend at once, InvokeID: %s, RT: %sms, Broker: %s", invokeID, endTimestamp - beginTimestampPrev, mq), e);
                         log.warn(msg.toString());
                         exception = e;
+                        // 如果内部发送上抛MQBrokerException，且是如下这些ResponseCode，会重试
                         switch (e.getResponseCode()) {
                             case ResponseCode.TOPIC_NOT_EXIST:
                             case ResponseCode.SERVICE_NOT_AVAILABLE:
@@ -628,6 +649,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             case ResponseCode.NOT_IN_CURRENT_UNIT:
                                 continue;
                             default:
+                                // 如果不是“小问题”，也不是如上ResponseCode，
+                                // 如果之前的失败发送中已经有 sendResult，就用之前的，否则上抛MQBrokerException
                                 if (sendResult != null) {
                                     return sendResult;
                                 }
@@ -689,6 +712,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
+            // 消息生产者更新和维护路由缓存
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }

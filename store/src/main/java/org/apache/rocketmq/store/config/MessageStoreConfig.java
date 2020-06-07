@@ -30,10 +30,19 @@ public class MessageStoreConfig {
     private String storePathCommitLog = System.getProperty("user.home") + File.separator + "store"
         + File.separator + "commitlog";
 
-    // CommitLog file size,default is 1G
+    /**
+     * CommitLog file size,default is 1G
+     * CommitLog文件大小，默认 1G
+     */
     private int mappedFileSizeCommitLog = 1024 * 1024 * 1024;
-    // ConsumeQueue file size,default is 30W
+
+    /**
+     * ConsumeQueue file size,default is 30W
+     * ConsumeQueue文件大小，默认30W个ConsumeQueue条目，每个条目占用20字节
+     * 8字节commitlog offset + 4字节消息size + 8字节tag hashcode
+     */
     private int mappedFileSizeConsumeQueue = 300000 * ConsumeQueue.CQ_STORE_UNIT_SIZE;
+
     // enable consume queue ext
     private boolean enableConsumeQueueExt = false;
     // ConsumeQueue extend file size, 48M
@@ -61,8 +70,11 @@ public class MessageStoreConfig {
     // Whether schedule flush,default is real-time
     @ImportantField
     private boolean flushCommitLogTimed = false;
+
     // ConsumeQueue flush interval
+    // ConsumeQueue 刷盘间隔（ConsumeQueue只有异步刷盘）
     private int flushIntervalConsumeQueue = 1000;
+
     // Resource reclaim interval
     private int cleanResourceInterval = 10000;
     // CommitLog removal interval

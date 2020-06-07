@@ -85,13 +85,18 @@ public class MappedFileQueue {
     }
 
     public MappedFile getMappedFileByTime(final long timestamp) {
+        // mappedFiles集合转成数组
         Object[] mfs = this.copyMappedFiles(0);
 
         if (null == mfs)
             return null;
 
+        // 遍历
         for (int i = 0; i < mfs.length; i++) {
             MappedFile mappedFile = (MappedFile) mfs[i];
+            // 找的第一个mappedFile的最后更新时间 大于 参数timestamp
+            // 比如，当前有4个mappedFile，最后更新时间假设是 1点、2点、3点、4点
+            // 参数timestamp是2点半，那么找到第3、4个mappedFile，说明里面有一部分数据是在参数timestamp这个起始时间戳之后的消息
             if (mappedFile.getLastModifiedTimestamp() >= timestamp) {
                 return mappedFile;
             }

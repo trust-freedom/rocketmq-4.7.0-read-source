@@ -41,6 +41,8 @@ public class ConsumeQueue {
     private final String storePath;
     private final int mappedFileSize;
     private long maxPhysicOffset = -1;
+
+    // 最小逻辑偏移量（比它还小的，说明已经被删除？？）
     private volatile long minLogicOffset = 0;
     private ConsumeQueueExt consumeQueueExt = null;
 
@@ -152,7 +154,13 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 根据时间戳查找偏移量
+     * @param timestamp
+     * @return
+     */
     public long getOffsetInQueueByTime(final long timestamp) {
+        // 根据时间戳定位物理文件
         MappedFile mappedFile = this.mappedFileQueue.getMappedFileByTime(timestamp);
         if (mappedFile != null) {
             long offset = 0;
@@ -430,11 +438,12 @@ public class ConsumeQueue {
             return true;
         }
 
+        // 要追加的ConsumeQueue条目信息
         this.byteBufferIndex.flip();
         this.byteBufferIndex.limit(CQ_STORE_UNIT_SIZE);
-        this.byteBufferIndex.putLong(offset);
-        this.byteBufferIndex.putInt(size);
-        this.byteBufferIndex.putLong(tagsCode);
+        this.byteBufferIndex.putLong(offset); // ConsumeQueue条目中的 commitlog offset
+        this.byteBufferIndex.putInt(size); // ConsumeQueue条目中的 消息大小
+        this.byteBufferIndex.putLong(tagsCode); // ConsumeQueue条目中的 消息tag hashcode
 
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
@@ -488,12 +497,21 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 根据消息的逻辑偏移量查找
+     * @param startIndex
+     * @return
+     */
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
         int mappedFileSize = this.mappedFileSize;
+        // startin dex*20 得到在 consumequeue 中的物理偏移量
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
+        // 如果该 offset 小于 minLogicOffset ，则返回 null，说明该消息已被删除
         if (offset >= this.getMinLogicOffset()) {
+            //根据偏移量定位到具体的物理文件
             MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset);
             if (mappedFile != null) {
+                // 然后通过 offset 与物理文大小取模获取在该文件的偏移量，从而从偏移量开始连续读取20个字节即可
                 SelectMappedBufferResult result = mappedFile.selectMappedBuffer((int) (offset % mappedFileSize));
                 return result;
             }

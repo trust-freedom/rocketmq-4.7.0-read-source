@@ -58,6 +58,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
+     * 发送消息的内部实现
      */
     protected final transient DefaultMQProducerImpl defaultMQProducerImpl;
     private final InternalLogger log = ClientLogger.getLog();
@@ -66,8 +67,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * important when transactional messages are involved. </p>
      *
      * For non-transactional messages, it does not matter as long as it's unique per process. </p>
+     * 对于非事务性消息，只要它在每个进程中都是唯一的就没有关系
      *
      * See {@linktourl http://rocketmq.apache.org/docs/core-concept/} for more discussion.
+     *
+     * 生产者所属组
+     * Broker在回查事务状态时会随机选择生产组中任何一个生产者发起事务回查请求
+     *
      */
     private String producerGroup;
 
@@ -78,28 +84,37 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Number of queues to create per default topic.
+     * 默认Topic在每一个Broker的队列数量
      */
     private volatile int defaultTopicQueueNums = 4;
 
     /**
      * Timeout for sending messages.
+     * 发送消息默认超时时间， 默认 3s
      */
     private int sendMsgTimeout = 3000;
 
     /**
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
+     * 消息体超过该值则启用压缩，默认 4K
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
     /**
      * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
+     * 在同步模式下声明发送失败之前在内部执行的最大重试次数
+     * 注意：是内部重试次数，即在每次调用 DefaultMQProducer.send(Message) 时都会调用到内部实现 DefaultMQProducerImpl#sendDefaultImpl()
+     * 其内部如果失败会自动进行重试，最多重试次数即为retryTimesWhenSendFailed
+     * 直到多次重试都失败了，才给用于返回 SendStatus != SEND_OK
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
+     * 这可能会导致消息重复，这取决于应用程序开发人员来解决
      */
     private int retryTimesWhenSendFailed = 2;
 
     /**
      * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
+     * 在异步模式下声明发送失败之前在内部执行的最大重试次数
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
      */
@@ -107,11 +122,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Indicate whether to retry another broker on sending failure internally.
+     * 是否在内部发送失败时重试另一个Broker
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
      * Maximum allowed message size in bytes.
+     * 允许发送的最大消息长度，默认为 4M
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
