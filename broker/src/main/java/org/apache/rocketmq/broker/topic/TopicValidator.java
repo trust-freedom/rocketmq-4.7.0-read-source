@@ -37,6 +37,12 @@ public class TopicValidator {
         return matcher.matches();
     }
 
+    /**
+     * 检查该 Topic 是否可以进行消息发送。主要针对默认主题，默认主题不能发送消息，仅仅供路由查找
+     * @param topic
+     * @param response
+     * @return
+     */
     public static boolean validateTopic(String topic, RemotingCommand response) {
 
         if (UtilAll.isBlank(topic)) {

@@ -163,8 +163,20 @@ public abstract class AbstractSendMessageProcessor extends AsyncNettyRequestProc
         return response;
     }
 
+    /**
+     * 检查消息发送是否合理
+     * 1、检查该 Broker 是否有写权限
+     * 2、检查该 Topic 是否可以进行消息发送。主要针对默认主题，默认主题不能发送消息，仅仅供路由查找
+     * 3、获取Topic的配置信息，没有创建（可创建普通Topic 或 %RETRY% Topic）
+     * 4、检查队列，如果队列不合法，返回错误码
+     * @param ctx
+     * @param requestHeader
+     * @param response
+     * @return
+     */
     protected RemotingCommand msgCheck(final ChannelHandlerContext ctx,
         final SendMessageRequestHeader requestHeader, final RemotingCommand response) {
+        // 检查该 Broker 是否有写权限
         if (!PermName.isWriteable(this.brokerController.getBrokerConfig().getBrokerPermission())
             && this.brokerController.getTopicConfigManager().isOrderTopic(requestHeader.getTopic())) {
             response.setCode(ResponseCode.NO_PERMISSION);
@@ -173,12 +185,15 @@ public abstract class AbstractSendMessageProcessor extends AsyncNettyRequestProc
             return response;
         }
 
+        // 检查该 Topic 是否可以进行消息发送。主要针对默认主题，默认主题不能发送消息，仅仅供路由查找
         if (!TopicValidator.validateTopic(requestHeader.getTopic(), response)) {
             return response;
         }
 
+        // 获取Topic的配置信息
         TopicConfig topicConfig =
             this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
+        // 没有当前Topic的配置信息
         if (null == topicConfig) {
             int topicSysFlag = 0;
             if (requestHeader.isUnitMode()) {
@@ -190,12 +205,14 @@ public abstract class AbstractSendMessageProcessor extends AsyncNettyRequestProc
             }
 
             log.warn("the topic {} not exist, producer: {}", requestHeader.getTopic(), ctx.channel().remoteAddress());
+            // 1、创建普通Topic
             topicConfig = this.brokerController.getTopicConfigManager().createTopicInSendMessageMethod(
                 requestHeader.getTopic(),
                 requestHeader.getDefaultTopic(),
                 RemotingHelper.parseChannelRemoteAddr(ctx.channel()),
                 requestHeader.getDefaultTopicQueueNums(), topicSysFlag);
 
+            // 2、创建 %RETRY% Topic
             if (null == topicConfig) {
                 if (requestHeader.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                     topicConfig =
@@ -205,6 +222,7 @@ public abstract class AbstractSendMessageProcessor extends AsyncNettyRequestProc
                 }
             }
 
+            // 3、还没有，响应异常
             if (null == topicConfig) {
                 response.setCode(ResponseCode.TOPIC_NOT_EXIST);
                 response.setRemark("topic[" + requestHeader.getTopic() + "] not exist, apply first please!"
@@ -213,6 +231,7 @@ public abstract class AbstractSendMessageProcessor extends AsyncNettyRequestProc
             }
         }
 
+        // 检查队列，如果队列不合法，返回错误码
         int queueIdInt = requestHeader.getQueueId();
         int idValid = Math.max(topicConfig.getWriteQueueNums(), topicConfig.getReadQueueNums());
         if (queueIdInt >= idValid) {

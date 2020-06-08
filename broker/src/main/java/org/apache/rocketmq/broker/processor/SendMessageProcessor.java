@@ -312,12 +312,24 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         );
     }
 
+    /**
+     * 处理重试和DLQ
+     * @param requestHeader
+     * @param response
+     * @param request
+     * @param msg
+     * @param topicConfig
+     * @return
+     */
     private boolean handleRetryAndDLQ(SendMessageRequestHeader requestHeader, RemotingCommand response,
                                       RemotingCommand request,
                                       MessageExt msg, TopicConfig topicConfig) {
         String newTopic = requestHeader.getTopic();
+
+        // 如果 Topic 是 %RETRY% 开头
         if (null != newTopic && newTopic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
-            String groupName = newTopic.substring(MixAll.RETRY_GROUP_TOPIC_PREFIX.length());
+            String groupName = newTopic.substring(MixAll.RETRY_GROUP_TOPIC_PREFIX.length()); // 重试队列名 后半段是 consumeGroup
+            // 获取 consumeGroup 配置
             SubscriptionGroupConfig subscriptionGroupConfig =
                 this.brokerController.getSubscriptionGroupManager().findSubscriptionGroupConfig(groupName);
             if (null == subscriptionGroupConfig) {
@@ -327,13 +339,16 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 return false;
             }
 
+            // 不同版本，获取 （应该是消费的）最大重试次数
             int maxReconsumeTimes = subscriptionGroupConfig.getRetryMaxTimes();
             if (request.getVersion() >= MQVersion.Version.V3_4_9.ordinal()) {
                 maxReconsumeTimes = requestHeader.getMaxReconsumeTimes();
             }
             int reconsumeTimes = requestHeader.getReconsumeTimes() == null ? 0 : requestHeader.getReconsumeTimes();
+
+            // 超过最大重试次数，创建 %DLQ% + groupName 的 Topic
             if (reconsumeTimes >= maxReconsumeTimes) {
-                newTopic = MixAll.getDLQTopic(groupName);
+                newTopic = MixAll.getDLQTopic(groupName); // %DLQ% + groupName
                 int queueIdInt = Math.abs(this.random.nextInt() % 99999999) % DLQ_NUMS_PER_GROUP;
                 topicConfig = this.brokerController.getTopicConfigManager().createTopicInSendMessageBackMethod(newTopic,
                     DLQ_NUMS_PER_GROUP,
@@ -356,6 +371,15 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         return true;
     }
 
+    /**
+     * Broker端 处理发送同步消息的方法
+     * @param ctx
+     * @param request
+     * @param sendMessageContext
+     * @param requestHeader
+     * @return
+     * @throws RemotingCommandException
+     */
     private RemotingCommand sendMessage(final ChannelHandlerContext ctx,
                                         final RemotingCommand request,
                                         final SendMessageContext sendMessageContext,
@@ -379,6 +403,14 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         }
 
         response.setCode(-1);
+
+        /**
+         * 检查消息发送是否合理
+         * 1、检查该 Broker 是否有写权限
+         * 2、检查该 Topic 是否可以进行消息发送。主要针对默认主题，默认主题不能发送消息，仅仅供路由查找
+         * 3、获取Topic的配置信息，没有创建（可创建普通Topic 或 %RETRY% Topic）
+         * 4、检查队列，如果队列不合法，返回错误码
+         */
         super.msgCheck(ctx, requestHeader, response);
         if (response.getCode() != -1) {
             return response;
@@ -397,6 +429,11 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setTopic(requestHeader.getTopic());
         msgInner.setQueueId(queueIdInt);
 
+        /**
+         * 处理重试和DLQ
+         * 如果消息重试次数超过允许的最大重试次数，消息将进入到 DLQ 延迟队列
+         * 延迟队列主题： %DLQ%＋消费组名
+         */
         if (!handleRetryAndDLQ(requestHeader, response, request, msgInner, topicConfig)) {
             return response;
         }
@@ -424,7 +461,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 return response;
             }
             putMessageResult = this.brokerController.getTransactionalMessageService().prepareMessage(msgInner);
-        } else {
+        }
+        else {
+            // 【调用 DefaultMessageStore#putMessage 进行消息存储】
             putMessageResult = this.brokerController.getMessageStore().putMessage(msgInner);
         }
 

@@ -111,10 +111,17 @@ public class MessageClientIDSetter {
         return value & 0x0000FFFF;
     }
 
+    /**
+     * 创建唯一消息ID
+     * 固定：IP + PID + MessageClientIDSetter ClassLoader的hashcode
+     * +
+     * 时间间隔ms + 计数
+     * @return
+     */
     public static String createUniqID() {
         StringBuilder sb = new StringBuilder(LEN * 2);
-        sb.append(FIX_STRING);
-        sb.append(UtilAll.bytes2string(createUniqIDBuffer()));
+        sb.append(FIX_STRING); // 固定：IP + PID + MessageClientIDSetter ClassLoader的hashcode
+        sb.append(UtilAll.bytes2string(createUniqIDBuffer())); // 时间间隔ms + 计数
         return sb.toString();
     }
 

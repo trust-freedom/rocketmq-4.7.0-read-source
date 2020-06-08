@@ -67,6 +67,9 @@ public abstract class ConfigManager {
 
     public abstract void decode(final String jsonString);
 
+    /**
+     * Topic信息持久化到 store/config/topics.json
+     */
     public synchronized void persist() {
         String jsonString = this.encode(true);
         if (jsonString != null) {

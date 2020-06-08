@@ -56,7 +56,7 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
-        // 是否开启发送延迟错误判断，默认false
+        // 是否开启Broker故障延迟机制，默认false。不开启
         if (this.sendLatencyFaultEnable) {
             try {
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
@@ -93,8 +93,18 @@ public class MQFaultStrategy {
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
+    /**
+     *
+     * @param brokerName
+     * @param currentLatency
+     * @param isolation  是否隔离
+     *                   如果为 true，则使用默认时长 30s 来计算 Broker 故障规避时长
+     *                   如果为 false，则使用本次消息发送延迟时间来计算 Broker 故障规避时长
+     */
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
+        // 只有开启了 Broker故障延迟机制，才会执行
         if (this.sendLatencyFaultEnable) {
+            // 计算不使用Broker的持续时间
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
             this.latencyFaultTolerance.updateFaultItem(brokerName, currentLatency, duration);
         }
