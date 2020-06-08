@@ -524,16 +524,19 @@ public class MQClientAPIImpl {
         return this.processSendResponse(brokerName, msg, response);
     }
 
+    /**
+     * 异步发送消息
+     */
     private void sendMessageAsync(
         final String addr,
         final String brokerName,
         final Message msg,
         final long timeoutMillis,
         final RemotingCommand request,
-        final SendCallback sendCallback,
+        final SendCallback sendCallback,  // 回调
         final TopicPublishInfo topicPublishInfo,
         final MQClientInstance instance,
-        final int retryTimesWhenSendFailed,
+        final int retryTimesWhenSendFailed,  // 失败重试次数
         final AtomicInteger times,
         final SendMessageContext context,
         final DefaultMQProducerImpl producer
@@ -544,6 +547,7 @@ public class MQClientAPIImpl {
             public void operationComplete(ResponseFuture responseFuture) {
                 long cost = System.currentTimeMillis() - beginStartTime;
                 RemotingCommand response = responseFuture.getResponseCommand();
+
                 if (null == sendCallback && response != null) {
 
                     try {
@@ -569,6 +573,7 @@ public class MQClientAPIImpl {
                         }
 
                         try {
+                            // 成功回调
                             sendCallback.onSuccess(sendResult);
                         } catch (Throwable e) {
                         }
@@ -579,7 +584,9 @@ public class MQClientAPIImpl {
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                             retryTimesWhenSendFailed, times, e, context, false, producer);
                     }
-                } else {
+                }
+                // response == null
+                else {
                     producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
                     if (!responseFuture.isSendRequestOK()) {
                         MQClientException ex = new MQClientException("send request failed", responseFuture.getCause());
@@ -600,6 +607,9 @@ public class MQClientAPIImpl {
         });
     }
 
+    /**
+     * 异步发送的异常处理，重试
+     */
     private void onExceptionImpl(final String brokerName,
         final Message msg,
         final long timeoutMillis,
@@ -607,7 +617,7 @@ public class MQClientAPIImpl {
         final SendCallback sendCallback,
         final TopicPublishInfo topicPublishInfo,
         final MQClientInstance instance,
-        final int timesTotal,
+        final int timesTotal,  // retryTimesWhenSendFailed
         final AtomicInteger curTimes,
         final Exception e,
         final SendMessageContext context,
@@ -615,6 +625,8 @@ public class MQClientAPIImpl {
         final DefaultMQProducerImpl producer
     ) {
         int tmp = curTimes.incrementAndGet();
+
+        // 没有超过重试次数
         if (needRetry && tmp <= timesTotal) {
             String retryBrokerName = brokerName;//by default, it will send to the same broker
             if (topicPublishInfo != null) { //select one message queue accordingly, in order to determine which broker to send
@@ -643,7 +655,9 @@ public class MQClientAPIImpl {
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                     context, true, producer);
             }
-        } else {
+        }
+        // 超过最大重试次数
+        else {
 
             if (context != null) {
                 context.setException(e);
@@ -651,6 +665,7 @@ public class MQClientAPIImpl {
             }
 
             try {
+                // 异常回调
                 sendCallback.onException(e);
             } catch (Exception ignored) {
             }

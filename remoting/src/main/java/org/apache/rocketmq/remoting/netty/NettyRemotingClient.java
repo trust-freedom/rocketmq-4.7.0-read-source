@@ -101,6 +101,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
     public NettyRemotingClient(final NettyClientConfig nettyClientConfig,
         final ChannelEventListener channelEventListener) {
+        // è®¾ç½®onewayå‘é€ï¼Œå¼‚æ­¥å‘é€ å¹¶å‘æ§åˆ¶ä¿¡å·é‡ï¼Œ65535
         super(nettyClientConfig.getClientOnewaySemaphoreValue(), nettyClientConfig.getClientAsyncSemaphoreValue());
         this.nettyClientConfig = nettyClientConfig;
         this.channelEventListener = channelEventListener;
@@ -359,7 +360,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     /**
-     * Í¬²½µ÷ÓÃ
+     * Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      * @param addr
      * @param request
      * @param timeoutMillis
@@ -376,19 +377,19 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         final Channel channel = this.getAndCreateChannel(addr);
         if (channel != null && channel.isActive()) {
             try {
-                // µ÷ÓÃ Before RpcHooks
+                // ï¿½ï¿½ï¿½ï¿½ Before RpcHooks
                 doBeforeRpcHooks(addr, request);
 
-                // ÒÑ¾­³¬Ê±£¿£¿
+                // ï¿½Ñ¾ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
                 long costTime = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTime) {
                     throw new RemotingTimeoutException("invokeSync call timeout");
                 }
 
-                // Í¬²½µ÷ÓÃbroker
+                // Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½broker
                 RemotingCommand response = this.invokeSyncImpl(channel, request, timeoutMillis - costTime);
 
-                // µ÷ÓÃ After RpcHooks
+                // ï¿½ï¿½ï¿½ï¿½ After RpcHooks
                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(channel), request, response);
 
                 return response;

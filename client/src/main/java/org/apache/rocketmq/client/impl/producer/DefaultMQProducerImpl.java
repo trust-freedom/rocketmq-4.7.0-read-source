@@ -123,6 +123,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         this.rpcHook = rpcHook;
 
         this.asyncSenderThreadPoolQueue = new LinkedBlockingQueue<Runnable>(50000);
+
+        // 默认异步发送线程池
         this.defaultAsyncSenderExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
@@ -504,19 +506,29 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void send(final Message msg, final SendCallback sendCallback, final long timeout)
         throws MQClientException, RemotingException, InterruptedException {
         final long beginStartTime = System.currentTimeMillis();
-        ExecutorService executor = this.getAsyncSenderExecutor();
+        ExecutorService executor = this.getAsyncSenderExecutor(); // 异步发送线程池
         try {
+            // 提交线程池
             executor.submit(new Runnable() {
                 @Override
                 public void run() {
                     long costTime = System.currentTimeMillis() - beginStartTime;
+                    // 此时还未超时
                     if (timeout > costTime) {
                         try {
+                            /**
+                             * 还是调用 sendDefaultImpl()
+                             * ASYNC模式， timeout 要减去 costTime
+                             */
                             sendDefaultImpl(msg, CommunicationMode.ASYNC, sendCallback, timeout - costTime);
                         } catch (Exception e) {
+                            // 调用异常回调
                             sendCallback.onException(e);
                         }
-                    } else {
+                    }
+                    // 未调用 sendDefaultImpl()，已经超时
+                    else {
+                        // 调用异常回调
                         sendCallback.onException(
                             new RemotingTooMuchRequestException("DEFAULT ASYNC send call timeout"));
                     }
@@ -552,6 +564,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     }
 
+    /**
+     * 无论 SYNC 或 ASYNC 发送时都会调用此方法
+     * CommunicationMode不同、SendCallback异步才有
+     * @param msg
+     * @param communicationMode
+     * @param sendCallback
+     * @param timeout
+     * @return
+     * @throws MQClientException
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     */
     private SendResult sendDefaultImpl(
         Message msg,
         final CommunicationMode communicationMode,
@@ -762,7 +787,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     private SendResult sendKernelImpl(final Message msg,
         final MessageQueue mq,
         final CommunicationMode communicationMode,
-        final SendCallback sendCallback,
+        final SendCallback sendCallback,   // 异步回调
         final TopicPublishInfo topicPublishInfo,
         final long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         long beginStartTime = System.currentTimeMillis();
