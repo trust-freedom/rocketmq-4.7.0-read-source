@@ -84,6 +84,7 @@ public class NamesrvController {
 
         this.registerProcessor();
 
+        // 【定时任务1: NameServer 每隔 10s 扫描一次 Broker ， 移除处于不激活状态的 Broker（120s，4轮 没有上报心跳）】
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -92,6 +93,7 @@ public class NamesrvController {
             }
         }, 5, 10, TimeUnit.SECONDS);
 
+        //【定时任务2: nameserver 每隔 10 分钟打印一次 KV 配置】
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override

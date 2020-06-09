@@ -193,7 +193,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 // 虽然用一个实例，但网络交互基于Netty，应该也不会互相影响
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
-                // 向 MQClientlnstance 注册，将 当前生产者加 入到 MQClientlnstance 管理中，方便后续调用网络请求、进行心跳检测等
+                // 向 MQClientlnstance 注册，将当前生产者加入到 MQClientlnstance 管理中，方便后续调用网络请求、进行心跳检测等
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;

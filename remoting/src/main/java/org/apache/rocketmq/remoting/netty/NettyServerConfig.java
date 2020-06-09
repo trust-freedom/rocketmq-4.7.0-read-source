@@ -21,17 +21,24 @@ public class NettyServerConfig implements Cloneable {
     private int serverWorkerThreads = 8;
     private int serverCallbackExecutorThreads = 0;
     private int serverSelectorThreads = 3;
+
+    // send oneway 消息请求井发度（Broker 端参数）
     private int serverOnewaySemaphoreValue = 256;
+
+    // 异步消息发送最大并发度（ Broker 端参数）
     private int serverAsyncSemaphoreValue = 64;
+
     private int serverChannelMaxIdleTimeSeconds = 120;
 
     private int serverSocketSndBufSize = NettySystemConfig.socketSndbufSize;
     private int serverSocketRcvBufSize = NettySystemConfig.socketRcvbufSize;
+
+    // ByteBuffer 是否开启缓存 ， 建议开启
     private boolean serverPooledByteBufAllocatorEnable = true;
 
     /**
      * make make install
-     *
+     * 是否启用 Epoll IO 模型
      *
      * ../glibc-2.10.1/configure \ --prefix=/usr \ --with-headers=/usr/include \
      * --host=x86_64-linux-gnu \ --build=x86_64-pc-linux-gnu \ --without-gd

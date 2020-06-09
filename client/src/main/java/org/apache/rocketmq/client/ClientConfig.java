@@ -43,16 +43,22 @@ public class ClientConfig {
 
     /**
      * Pulling topic information interval from the named server
+     * Client从NameServer拉取Topic信息的时间间隔
      */
     private int pollNameServerInterval = 1000 * 30;
+
     /**
      * Heartbeat interval in microseconds with message broker
+     * Client向Broker发送心跳的时间间隔
      */
     private int heartbeatBrokerInterval = 1000 * 30;
+
     /**
      * Offset persistent interval for consumer
+     * 持久化 ConsumerOffset 的时间间隔
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
+
     private long pullTimeDelayMillsWhenException = 1000;
     private boolean unitMode = false;
     private String unitName;

@@ -143,6 +143,8 @@ public class NamesrvStartup {
             System.exit(-3);
         }
 
+        // 注册JVM钩子函数
+        // 如果代码中使用了线程池，一种优雅停机的方式就是注册一个 JVM 钩子函数， 在 JVM 进程关闭之前，先将线程池关闭 ，及时释放资源
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {
@@ -151,6 +153,7 @@ public class NamesrvStartup {
             }
         }));
 
+        // 启动 NamesrvController
         controller.start();
 
         return controller;

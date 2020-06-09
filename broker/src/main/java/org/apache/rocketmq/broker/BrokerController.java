@@ -887,6 +887,10 @@ public class BrokerController {
             this.registerBrokerAll(true, false, true);
         }
 
+        /**
+         * Broker端发送心跳包
+         * 默认30s发送一次
+         */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -897,7 +901,7 @@ public class BrokerController {
                     log.error("registerBrokerAll Exception", e);
                 }
             }
-        }, 1000 * 10, Math.max(10000, Math.min(brokerConfig.getRegisterNameServerPeriod(), 60000)), TimeUnit.MILLISECONDS);
+        }, 1000 * 10, Math.max(10000, Math.min(brokerConfig.getRegisterNameServerPeriod(), 60000)), TimeUnit.MILLISECONDS); // registerNameServerPeriod 默认 30s
 
         if (this.brokerStatsManager != null) {
             this.brokerStatsManager.start();

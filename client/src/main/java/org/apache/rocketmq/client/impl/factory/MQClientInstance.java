@@ -265,9 +265,12 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 开启一系列定时任务
+     */
     private void startScheduledTask() {
         /**
-         *
+         * 每隔2分钟，更新NameServer地址？？
          */
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
@@ -283,7 +286,7 @@ public class MQClientInstance {
         }
 
         /**
-         *
+         * 每隔30s从NameServer更新Topic信息
          */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -297,7 +300,7 @@ public class MQClientInstance {
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
         /**
-         *
+         * 每30s Client向Broker发送心跳
          */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -312,7 +315,7 @@ public class MQClientInstance {
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
         /**
-         *
+         * Client 持久化 ConsumerOffset 的时间间隔（5s）
          */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -326,7 +329,7 @@ public class MQClientInstance {
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
         /**
-         *
+         * 每隔1分钟，调整线程池，代码基本为空
          */
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
