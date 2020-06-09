@@ -329,6 +329,12 @@ public class ConsumeQueue {
         return lastOffset;
     }
 
+    /**
+     * 执行 ConsumeQueue 刷盘
+     * 被 FlushConsumeQueueService 调用，异步刷盘
+     * @param flushLeastPages
+     * @return
+     */
     public boolean flush(final int flushLeastPages) {
         boolean result = this.mappedFileQueue.flush(flushLeastPages);
         if (isExtReadEnable()) {
@@ -403,6 +409,7 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
+            //【根据DispatchRequest，写入ConsumeQueue的ByteBuffer】
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
@@ -430,6 +437,15 @@ public class ConsumeQueue {
         this.defaultMessageStore.getRunningFlags().makeLogicsQueueError();
     }
 
+    /**
+     * 根据DispatchRequest，写入ConsumeQueue的ByteBuffer
+     * ConsumeQueue 固定为 异步刷盘
+     * @param offset     CommitLogOffset
+     * @param size       msgSize
+     * @param tagsCode   消息tag hashcode
+     * @param cqOffset   ConsumeQueueOffset
+     * @return
+     */
     private boolean putMessagePositionInfo(final long offset, final int size, final long tagsCode,
         final long cqOffset) {
 

@@ -53,6 +53,7 @@ public class MessageStoreConfig {
 
     // CommitLog flush interval
     // flush data to disk
+    // CommitLog 异步刷盘间隔
     @ImportantField
     private int flushIntervalCommitLog = 500;
 
@@ -76,7 +77,9 @@ public class MessageStoreConfig {
     private int flushIntervalConsumeQueue = 1000;
 
     // Resource reclaim interval
+    // 清理过期资源间隔，默认10s
     private int cleanResourceInterval = 10000;
+
     // CommitLog removal interval
     private int deleteCommitLogFilesInterval = 100;
     // ConsumeQueue removal interval
