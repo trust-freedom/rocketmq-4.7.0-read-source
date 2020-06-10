@@ -92,8 +92,13 @@ public class MQClientInstance {
     private final int instanceIndex;
     private final String clientId;
     private final long bootTimestamp = System.currentTimeMillis();
+
     private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
+
+    // 已注册的消费者 <consumeGroup, MQConsumerInner>
     private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
+
+
     private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
     private final NettyClientConfig nettyClientConfig;
     private final MQClientAPIImpl mQClientAPIImpl;
@@ -112,8 +117,13 @@ public class MQClientInstance {
         }
     });
     private final ClientRemotingProcessor clientRemotingProcessor;
+
+    // 拉取消息线程
     private final PullMessageService pullMessageService;
+
+    // 消息队列重新分布线程
     private final RebalanceService rebalanceService;
+
     private final DefaultMQProducer defaultMQProducer;
     private final ConsumerStatsManager consumerStatsManager;
     private final AtomicLong sendHeartbeatTimesTotal = new AtomicLong(0);
@@ -641,22 +651,33 @@ public class MQClientInstance {
             if (this.lockNamesrv.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     TopicRouteData topicRouteData;
+                    // 使用默认Topic（TBW102）
                     if (isDefault && defaultMQProducer != null) {
-                        topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(), // TBW102
+                        // 默认Topic 路由信息
+                        // 可以知道默认Topic在每个Broker上都有8个Queue
+                        topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(), // MixAll.AUTO_CREATE_TOPIC_KEY_TOPIC == TBW102
                             1000 * 3);
                         if (topicRouteData != null) {
                             for (QueueData data : topicRouteData.getQueueDatas()) {
+                                // 取 defaultMQProducer.getDefaultTopicQueueNums()==4 与 返回的data.getReadQueueNums()==8 的最小值，等于4
+                                // 故自动创建的队列数量为 4
                                 int queueNums = Math.min(defaultMQProducer.getDefaultTopicQueueNums(), data.getReadQueueNums());
                                 data.setReadQueueNums(queueNums);
                                 data.setWriteQueueNums(queueNums);
                             }
                         }
-                    } else { // 根据参数中topic查询路由信息
+                    }
+                    // 根据参数中topic查询路由信息
+                    else {
                         topicRouteData = this.mQClientAPIImpl.getTopicRouteInfoFromNameServer(topic, 1000 * 3);
                     }
 
                     // 如果查询到topic路由信息，判断是否发送变化
                     if (topicRouteData != null) {
+                        /**
+                         * 如果此时是Topic本身不存在，又通过 Default Topic 查询到的 topicRouteData，并且重新计算过每个Broker的Queue数量=4
+                         * 就在Client本地更新这个不存在的Topic的路由信息为 每个Broker 4个Queue
+                         */
                         TopicRouteData old = this.topicRouteTable.get(topic);
                         boolean changed = topicRouteDataIsChange(old, topicRouteData);
                         if (!changed) {
@@ -1007,7 +1028,12 @@ public class MQClientInstance {
         this.rebalanceService.wakeup();
     }
 
+    /**
+     * 执行消息队列重新分布
+     * 遍历已注册的消费者，逐个执行 doRebalance
+     */
     public void doRebalance() {
+        // 遍历已注册的消费者 <consumeGroup, MQConsumerInner>，逐个执行 doRebalance
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
@@ -1107,13 +1133,22 @@ public class MQClientInstance {
         return 0;
     }
 
+    /**
+     * 根据 topic 找到 Broker地址，再根据 consumeGroup 到 Broker找所有组内的 ConsumeId
+     * @param topic
+     * @param group
+     * @return
+     */
     public List<String> findConsumerIdList(final String topic, final String group) {
         String brokerAddr = this.findBrokerAddrByTopic(topic);
+
+        // 如果 brokerAddr为空，再去NameServer询问
         if (null == brokerAddr) {
             this.updateTopicRouteInfoFromNameServer(topic);
             brokerAddr = this.findBrokerAddrByTopic(topic);
         }
 
+        // 根据 consumeGroup 到 Broker找所有组内的 ConsumeId
         if (null != brokerAddr) {
             try {
                 return this.mQClientAPIImpl.getConsumerIdListByGroup(brokerAddr, group, 3000);

@@ -27,7 +27,11 @@ import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 public class TopicRouteData extends RemotingSerializable {
     private String orderTopicConf;
+
+    // QueueData包含：brokerName、readQueueNums、writeQueueNums、perm、topicSynFlag
     private List<QueueData> queueDatas;
+
+    // BrokerData包含：cluster、brokerName、HashMap<brokerId, broker address> brokerAddrs
     private List<BrokerData> brokerDatas;
     private HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 

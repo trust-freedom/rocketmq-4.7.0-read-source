@@ -116,6 +116,13 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         return response;
     }
 
+    /**
+     * 查询消费偏移量
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     private RemotingCommand queryConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
         final RemotingCommand response =
@@ -126,25 +133,41 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
             (QueryConsumerOffsetRequestHeader) request
                 .decodeCommandCustomHeader(QueryConsumerOffsetRequestHeader.class);
 
+        // 从消费消息进度文件中查询消息消费进度
+        // 应该是从 store/config/offset.json 加载消费偏移量 topic@group
         long offset =
             this.brokerController.getConsumerOffsetManager().queryOffset(
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
 
+        // 如果消息消费进度文件中存储该队列的消息进度，其返回的offset必然会大于等于0，则直接返回该偏移量该客户端，客户端从该偏移量开始消费
+        // 即 store/config/offset.json 中有数据，对于新的 ConsumeGroup 肯定是没有的
         if (offset >= 0) {
             responseHeader.setOffset(offset);
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
-        } else {
+        }
+        // 如果未从消息消费进度文件中查询到其进度，offset为-1
+        // store/config/offset.json 中没有数据，那么从哪儿开始呢？？
+        else {
+            // 获取该主题、消息队列当前在Broker服务器中的最小偏移量
+            // ConsumeQueue.getMinOffsetInQueue()
             long minOffset =
                 this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
+
+            // 如果小于等于0（返回0则表示该队列的文件还未曾删除过）
+            // 并且其最小偏移量对应的消息存储在内存中而不是存在磁盘中，则返回偏移量0
             if (minOffset <= 0
                 && !this.brokerController.getMessageStore().checkInDiskByConsumeOffset(
                 requestHeader.getTopic(), requestHeader.getQueueId(), 0)) {
+
                 responseHeader.setOffset(0L);
                 response.setCode(ResponseCode.SUCCESS);
                 response.setRemark(null);
-            } else {
+            }
+            // 其它情况
+            // 此时返回未找到，最终RebalancePushImpl#computePullFromWhere中得到的偏移量为-1
+            else {
                 response.setCode(ResponseCode.QUERY_NOT_FOUND);
                 response.setRemark("Not found, V3_0_6_SNAPSHOT maybe this group consumer boot first");
             }
