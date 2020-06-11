@@ -1794,6 +1794,7 @@ public class CommitLog {
             return result;
         }
 
+
         public AppendMessageResult doAppend(final long fileFromOffset, final ByteBuffer byteBuffer, final int maxBlank,
             final MessageExtBatch messageExtBatch) {
             byteBuffer.mark();

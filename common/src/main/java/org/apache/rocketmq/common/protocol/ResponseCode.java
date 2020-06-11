@@ -19,6 +19,14 @@ package org.apache.rocketmq.common.protocol;
 
 import org.apache.rocketmq.remoting.protocol.RemotingSysResponseCode;
 
+/**
+ * ResponseCode 继承 RemotingSysResponseCode
+ *   SUCCESS = 0;
+ *   SYSTEM_ERROR = 1;
+ *   SYSTEM_BUSY = 2;
+ *   REQUEST_CODE_NOT_SUPPORTED = 3;
+ *   TRANSACTION_FAILED = 4;
+ */
 public class ResponseCode extends RemotingSysResponseCode {
 
     public static final int FLUSH_DISK_TIMEOUT = 10;

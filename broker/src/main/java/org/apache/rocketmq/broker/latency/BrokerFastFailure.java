@@ -52,9 +52,11 @@ public class BrokerFastFailure {
     }
 
     public void start() {
+        // 每10ms执行一次
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
+                // 默认开启了 Broker的快速失败
                 if (brokerController.getBrokerConfig().isBrokerFastFailureEnable()) {
                     cleanExpiredRequest();
                 }
@@ -63,45 +65,66 @@ public class BrokerFastFailure {
     }
 
     private void cleanExpiredRequest() {
+        // 如果 系统PageCache繁忙，直到 处理SEND请求的线程池队列 为空为止
         while (this.brokerController.getMessageStore().isOSPageCacheBusy()) {
             try {
+                // 处理SEND请求的线程池队列 不为空
                 if (!this.brokerController.getSendThreadPoolQueue().isEmpty()) {
                     final Runnable runnable = this.brokerController.getSendThreadPoolQueue().poll(0, TimeUnit.SECONDS);
                     if (null == runnable) {
                         break;
                     }
 
+                    // SEND请求的线程池队列 中的任务，不执行了，直接返回 [PCBUSY_CLEAN_QUEUE]broker busy
                     final RequestTask rt = castRunnable(runnable);
-                    rt.returnResponse(RemotingSysResponseCode.SYSTEM_BUSY, String.format("[PCBUSY_CLEAN_QUEUE]broker busy, start flow control for a while, period in queue: %sms, size of queue: %d", System.currentTimeMillis() - rt.getCreateTimestamp(), this.brokerController.getSendThreadPoolQueue().size()));
-                } else {
+                    rt.returnResponse(RemotingSysResponseCode.SYSTEM_BUSY,
+                            String.format("[PCBUSY_CLEAN_QUEUE]broker busy, start flow control for a while, period in queue: %sms, size of queue: %d", System.currentTimeMillis() - rt.getCreateTimestamp(), this.brokerController.getSendThreadPoolQueue().size()));
+                }
+                // 处理SEND请求的线程池队列 empty
+                else {
                     break;
                 }
             } catch (Throwable ignored) {
             }
         }
 
+        /**
+         * 无论 系统PageCache是否繁忙，都需要清理以下线程池队列中的超时任务
+         */
+        // 清理 SendThreadPoolQueue 中，超过 200ms 的任务
         cleanExpiredRequestInQueue(this.brokerController.getSendThreadPoolQueue(),
             this.brokerController.getBrokerConfig().getWaitTimeMillsInSendQueue());
 
+        // 清理 PullThreadPoolQueue 中，超过 （5 * 1000）ms 的任务
         cleanExpiredRequestInQueue(this.brokerController.getPullThreadPoolQueue(),
             this.brokerController.getBrokerConfig().getWaitTimeMillsInPullQueue());
 
+        // 清理 HeartbeatThreadPoolQueue 中，超过 （31 * 1000）ms 的任务
         cleanExpiredRequestInQueue(this.brokerController.getHeartbeatThreadPoolQueue(),
             this.brokerController.getBrokerConfig().getWaitTimeMillsInHeartbeatQueue());
 
+        // 清理 EndTransactionThreadPoolQueue 中，超过 （3 * 1000）ms 的任务
         cleanExpiredRequestInQueue(this.brokerController.getEndTransactionThreadPoolQueue(), this
             .brokerController.getBrokerConfig().getWaitTimeMillsInTransactionQueue());
     }
 
+    /**
+     * 清理线程池队列中，超过 maxWaitTimeMillsInQueue 的任务
+     * @param blockingQueue
+     * @param maxWaitTimeMillsInQueue
+     */
     void cleanExpiredRequestInQueue(final BlockingQueue<Runnable> blockingQueue, final long maxWaitTimeMillsInQueue) {
         while (true) {
             try {
                 if (!blockingQueue.isEmpty()) {
                     final Runnable runnable = blockingQueue.peek();
+                    // Runnable为空，退出
                     if (null == runnable) {
                         break;
                     }
+
                     final RequestTask rt = castRunnable(runnable);
+                    // RequestTask为空 或 RequestTask不在运行，退出
                     if (rt == null || rt.isStopRun()) {
                         break;
                     }
@@ -112,10 +135,14 @@ public class BrokerFastFailure {
                             rt.setStopRun(true);
                             rt.returnResponse(RemotingSysResponseCode.SYSTEM_BUSY, String.format("[TIMEOUT_CLEAN_QUEUE]broker busy, start flow control for a while, period in queue: %sms, size of queue: %d", behind, blockingQueue.size()));
                         }
-                    } else {
+                    }
+                    // 已经不大于maxWaitTimeMillsInQueue，退出
+                    else {
                         break;
                     }
-                } else {
+                }
+                // 队列为空，退出
+                else {
                     break;
                 }
             } catch (Throwable ignored) {

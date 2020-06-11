@@ -519,8 +519,11 @@ public class MQClientAPIImpl {
         final long timeoutMillis,
         final RemotingCommand request
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        // 同步发送
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
         assert response != null;
+
+        // 处理消息发送的Response
         return this.processSendResponse(brokerName, msg, response);
     }
 
@@ -542,6 +545,7 @@ public class MQClientAPIImpl {
         final DefaultMQProducerImpl producer
     ) throws InterruptedException, RemotingException {
         final long beginStartTime = System.currentTimeMillis();
+
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
@@ -565,6 +569,7 @@ public class MQClientAPIImpl {
 
                 if (response != null) {
                     try {
+                        // 异常的ResponseCode，会上抛 MQBrokerException
                         SendResult sendResult = MQClientAPIImpl.this.processSendResponse(brokerName, msg, response);
                         assert sendResult != null;
                         if (context != null) {
@@ -628,7 +633,8 @@ public class MQClientAPIImpl {
 
         // 没有超过重试次数
         if (needRetry && tmp <= timesTotal) {
-            String retryBrokerName = brokerName;//by default, it will send to the same broker
+            String retryBrokerName = brokerName;//by default, it will send to the same broker  默认 异步发送重试是在同个Broker  https://github.com/apache/rocketmq/blob/master/docs/cn/features.md#10-%E6%B6%88%E6%81%AF%E9%87%8D%E6%8A%95
+            // 但如果 参数传进来的topicPublishInfo不为空，应该可以不选择参数中的brokerName下的队列了，也就发往另一个Broker了，和官方文档说的不一样
             if (topicPublishInfo != null) { //select one message queue accordingly, in order to determine which broker to send
                 MessageQueue mqChosen = producer.selectOneMessageQueue(topicPublishInfo, brokerName);
                 retryBrokerName = mqChosen.getBrokerName();
@@ -673,7 +679,7 @@ public class MQClientAPIImpl {
     }
 
     /**
-     * 处理发送Response
+     * 处理消息发送的Response
      * @param brokerName
      * @param msg
      * @param response
@@ -751,6 +757,10 @@ public class MQClientAPIImpl {
                 break;
         }
 
+        /**
+         * 以上的其它ResponseCode，抛MQBrokerException
+         *   比如，Broker端返回 SYSTEM_BUSY = 2，也是上抛异常
+         */
         throw new MQBrokerException(response.getCode(), response.getRemark());
     }
 

@@ -58,6 +58,7 @@ public class BrokerConfig {
     /**
      * thread numbers for send message thread pool, since spin lock will be used by default since 4.0.x, the default
      * value is 1.
+     * 为了保证消息的顺序处理，该线程池默认线程个数为 1 ??
      */
     private int sendMessageThreadPoolNums = 1; //16 + Runtime.getRuntime().availableProcessors() * 4;
     private int pullMessageThreadPoolNums = 16 + Runtime.getRuntime().availableProcessors() * 2;
@@ -82,7 +83,11 @@ public class BrokerConfig {
     private boolean rejectTransactionMessage = false;
     @ImportantField
     private boolean fetchNamesrvAddrByAddressServer = false;
+
+    // send线程池 队列容量，默认 1W
     private int sendThreadPoolQueueCapacity = 10000;
+
+    // pull线程池 队列容量，默认 10W
     private int pullThreadPoolQueueCapacity = 100000;
     private int replyThreadPoolQueueCapacity = 10000;
     private int queryThreadPoolQueueCapacity = 20000;

@@ -360,7 +360,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     /**
-     * ͬ������
+     * 同步调用
      * @param addr
      * @param request
      * @param timeoutMillis
@@ -377,19 +377,19 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         final Channel channel = this.getAndCreateChannel(addr);
         if (channel != null && channel.isActive()) {
             try {
-                // ���� Before RpcHooks
+                // 调用 Before RpcHooks
                 doBeforeRpcHooks(addr, request);
 
-                // �Ѿ���ʱ����
+                // 已经超时？
                 long costTime = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTime) {
                     throw new RemotingTimeoutException("invokeSync call timeout");
                 }
 
-                // ͬ������broker
+                // 同步调用broker
                 RemotingCommand response = this.invokeSyncImpl(channel, request, timeoutMillis - costTime);
 
-                // ���� After RpcHooks
+                // 调用 After RpcHooks
                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(channel), request, response);
 
                 return response;

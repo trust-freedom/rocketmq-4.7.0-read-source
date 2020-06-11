@@ -185,16 +185,21 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * Process incoming request command issued by remote peer.
+     * 处理接收到的请求命令，通过 Pair<NettyRequestProcessor, ExecutorService>
      *
      * @param ctx channel handler context.
      * @param cmd request command.
      */
     public void processRequestCommand(final ChannelHandlerContext ctx, final RemotingCommand cmd) {
+        // 通过 RequestCode 找到匹配的 Pair<NettyRequestProcessor, ExecutorService>
         final Pair<NettyRequestProcessor, ExecutorService> matched = this.processorTable.get(cmd.getCode());
+        // 如果没找到，使用 defaultRequestProcessor
         final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
         final int opaque = cmd.getOpaque();
 
+        // 有可用的 Pair<NettyRequestProcessor, ExecutorService>
         if (pair != null) {
+            // 创建人物
             Runnable run = new Runnable() {
                 @Override
                 public void run() {
@@ -243,6 +248,9 @@ public abstract class NettyRemotingAbstract {
                 }
             };
 
+            /**
+             * 【 判断 NettyRequestProcessor 是否拒绝请求 】
+             */
             if (pair.getObject1().rejectRequest()) {
                 final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                     "[REJECTREQUEST]system busy, start flow control for a while");
@@ -252,9 +260,12 @@ public abstract class NettyRemotingAbstract {
             }
 
             try {
+                // 创建 RequestTask，并提交对应的线程池
                 final RequestTask requestTask = new RequestTask(run, ctx.channel(), cmd);
                 pair.getObject2().submit(requestTask);
-            } catch (RejectedExecutionException e) {
+            }
+            catch (RejectedExecutionException e) { // 捕获线程池拒绝执行
+                // 只有当前时间戳 % 100000 == 0 ，才打印警告
                 if ((System.currentTimeMillis() % 10000) == 0) {
                     log.warn(RemotingHelper.parseChannelRemoteAddr(ctx.channel())
                         + ", too many requests and system thread pool busy, RejectedExecutionException "
@@ -262,6 +273,7 @@ public abstract class NettyRemotingAbstract {
                         + " request code: " + cmd.getCode());
                 }
 
+                // 如果不是 oneway 请求，返回响应，[OVERLOAD]system busy, start flow control for a while
                 if (!cmd.isOnewayRPC()) {
                     final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                         "[OVERLOAD]system busy, start flow control for a while");
@@ -269,7 +281,9 @@ public abstract class NettyRemotingAbstract {
                     ctx.writeAndFlush(response);
                 }
             }
-        } else {
+        }
+        // 无可用 Pair<NettyRequestProcessor, ExecutorService>
+        else {
             String error = " request type " + cmd.getCode() + " not supported";
             final RemotingCommand response =
                 RemotingCommand.createResponseCommand(RemotingSysResponseCode.REQUEST_CODE_NOT_SUPPORTED, error);

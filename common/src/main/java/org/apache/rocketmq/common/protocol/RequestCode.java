@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.common.protocol;
 
+/**
+ * RocketMQ 的 Netty网络请求中的代表不同请求的CODE
+ */
 public class RequestCode {
 
     public static final int SEND_MESSAGE = 10;

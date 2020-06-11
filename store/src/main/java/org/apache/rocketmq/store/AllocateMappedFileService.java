@@ -164,6 +164,7 @@ public class AllocateMappedFileService extends ServiceThread {
                 long beginTime = System.currentTimeMillis();
 
                 MappedFile mappedFile;
+                // 开启了 transientStorePoolEnable
                 if (messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                     try {
                         mappedFile = ServiceLoader.load(MappedFile.class).iterator().next();
@@ -172,7 +173,9 @@ public class AllocateMappedFileService extends ServiceThread {
                         log.warn("Use default implementation.");
                         mappedFile = new MappedFile(req.getFilePath(), req.getFileSize(), messageStore.getTransientStorePool());
                     }
-                } else {
+                }
+                // 没开启 transientStorePoolEnable
+                else {
                     mappedFile = new MappedFile(req.getFilePath(), req.getFileSize());
                 }
 

@@ -103,8 +103,18 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         }
     }
 
+    /**
+     * 是否拒绝 SendMessage 请求
+     * 继承自 NettyRequestProcessor
+     * @return
+     */
     @Override
     public boolean rejectRequest() {
+        /**
+         * 以下二者只要有一个满足就拒绝请求：
+         * 1、操作系统PageCache 繁忙：
+         * 2、transientStorePool 不足：
+         */
         return this.brokerController.getMessageStore().isOSPageCacheBusy() ||
             this.brokerController.getMessageStore().isTransientStorePoolDeficient();
     }
@@ -471,6 +481,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
     }
 
+    /**
+     * 处理 PutMessageResult
+     */
     private RemotingCommand handlePutMessageResult(PutMessageResult putMessageResult, RemotingCommand response,
                                                    RemotingCommand request, MessageExt msg,
                                                    SendMessageResponseHeader responseHeader, SendMessageContext sendMessageContext, ChannelHandlerContext ctx,
@@ -517,7 +530,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 response.setRemark(
                     "service not available now, maybe disk full, " + diskUtil() + ", maybe your broker machine memory too small.");
                 break;
-            case OS_PAGECACHE_BUSY:
+            case OS_PAGECACHE_BUSY:  // 系统 PageCache 繁忙，此时返回 SYSTEM_ERROR，当前版本（4.7.0）客户端会重试
                 response.setCode(ResponseCode.SYSTEM_ERROR);
                 response.setRemark("[PC_SYNCHRONIZED]broker busy, start flow control for a while");
                 break;

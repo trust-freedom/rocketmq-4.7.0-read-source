@@ -38,13 +38,15 @@ public class TransientStorePool {
 
     public TransientStorePool(final MessageStoreConfig storeConfig) {
         this.storeConfig = storeConfig;
-        this.poolSize = storeConfig.getTransientStorePoolSize();
-        this.fileSize = storeConfig.getMappedFileSizeCommitLog();
+        this.poolSize = storeConfig.getTransientStorePoolSize(); // 默认 5
+        this.fileSize = storeConfig.getMappedFileSizeCommitLog(); // ommitLog 的 MappedFileSize，默认 1G
         this.availableBuffers = new ConcurrentLinkedDeque<>();
     }
 
     /**
      * It's a heavy init method.
+     * 默认会初始化5个DirectByteBuffer(对外内存)，并提供内存锁定功能，即这部分内存不会被置换
+     * 默认 5 x 1G = 5G
      */
     public void init() {
         for (int i = 0; i < poolSize; i++) {
