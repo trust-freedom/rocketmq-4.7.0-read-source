@@ -48,12 +48,21 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
         }
     }
 
+    /**
+     * 当前Broker是否可用
+     * @param name  Broker name
+     * @return
+     */
     @Override
     public boolean isAvailable(final String name) {
         final FaultItem faultItem = this.faultItemTable.get(name);
+
+        // 如果Broker存在FaultItem，查看是否已经到了可用状态，即 当前时间戳 > startTimestamp
         if (faultItem != null) {
             return faultItem.isAvailable();
         }
+
+        // faultItem == null
         return true;
     }
 

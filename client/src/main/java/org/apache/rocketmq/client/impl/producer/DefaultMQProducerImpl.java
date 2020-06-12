@@ -605,6 +605,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
             int times = 0;
             String[] brokersSent = new String[timesTotal];
+
+            // Sync同步的重试
             for (; times < timesTotal; times++) {
                 String lastBrokerName = null == mq ? null : mq.getBrokerName(); // 上一次选择的执行发送消息失败的 Broker
                                                                                 // 第一次mq==null，重试的时候就不为null了
@@ -634,7 +636,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                         sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
                         endTimestamp = System.currentTimeMillis();
+
+                        // 正常情况下返回SendResult，也会更新FaultItem，如果broker延迟高了下次就不选了，但是不 isolation隔离，只有异常情况才隔离
                         this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, false);
+
                         switch (communicationMode) {
                             case ASYNC:
                                 return null;

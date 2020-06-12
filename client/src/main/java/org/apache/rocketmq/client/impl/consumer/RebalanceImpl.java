@@ -253,8 +253,13 @@ public abstract class RebalanceImpl {
      */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
-            // 广播
+            /**
+             * 广播
+             * 在获取Topic的队列信息后，没有做任何筛选，直接更新 updateProcessQueueTableInRebalance()
+             * 即 当前消费者可以消费所有队列
+             */
             case BROADCASTING: {
+                // 从Topic订阅信息缓存表中 获取Topic的队列信息
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
@@ -271,7 +276,11 @@ public abstract class RebalanceImpl {
                 }
                 break;
             }
-            // 集群
+            /**
+             * 集群
+             * 在获取Topic的队列信息后，还需要根据consumeGroup找到所有consumer，经过分配算法的分配后，把分配给当前消费者的队列，调用 updateProcessQueueTableInRebalance()
+             * 即 当前消费者可以消费 分配给它的队列
+             */
             case CLUSTERING: {
                 // 从Topic订阅信息缓存表中 获取Topic的队列信息
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
@@ -375,6 +384,9 @@ public abstract class RebalanceImpl {
 
         Iterator<Entry<MessageQueue, ProcessQueue>> it = this.processQueueTable.entrySet().iterator();
         // 遍历之前的所有 MessageQueue:ProcessQueue
+        /**
+         * 将本次更新分配给当前消费者的消息队列集合（mqSet） 与 processQueueTable做过滤比对
+         */
         while (it.hasNext()) {
             Entry<MessageQueue, ProcessQueue> next = it.next();
             MessageQueue mq = next.getKey();
@@ -393,11 +405,13 @@ public abstract class RebalanceImpl {
                         log.info("doRebalance, {}, remove unnecessary mq, {}", consumerGroup, mq);
                     }
                 }
+                // 判断 ProcessQueue 是否已经过期
+                // (System.currentTimeMillis() - this.lastPullTimestamp) > PULL_MAX_IDLE_TIME（120s）
                 else if (pq.isPullExpired()) {
                     switch (this.consumeType()) {
-                        case CONSUME_ACTIVELY:
+                        case CONSUME_ACTIVELY:  // pull模式
                             break;
-                        case CONSUME_PASSIVELY:
+                        case CONSUME_PASSIVELY:  // push模式
                             pq.setDropped(true);
                             if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                                 it.remove();
@@ -451,8 +465,11 @@ public abstract class RebalanceImpl {
             }
         }
 
-        // 分配 PullRequest
-        // this.defaultMQPushConsumerImpl.executePullRequestImmediately(pullRequest)
+        /**
+         * 分配 PullRequest
+         * 将Pull消息的请求对象PullRequest依次放入PullMessageService服务线程的阻塞队列pullRequestQueue中，待该服务线程取出后向Broker端发起Pull消息的请求
+         * this.defaultMQPushConsumerImpl.executePullRequestImmediately(pullRequest)
+         */
         this.dispatchPullRequest(pullRequestList);
 
         return changed;

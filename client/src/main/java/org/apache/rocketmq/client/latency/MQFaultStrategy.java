@@ -60,12 +60,17 @@ public class MQFaultStrategy {
         if (this.sendLatencyFaultEnable) {
             try {
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
+                // 遍历所有Queue
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
+                    // 当前Broker是否可用
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName())) {
+                        // 如果没有lastBrokerName，就选这个 MessageQueue
+                        // 如果当前MessageQueue就是 lastBrokerName 的队列，说明刚刚发送的Broker没问题，还选它
+                        // 不太明白，要是一个没被选过的Broker，也不是lastBrokerName，那就进不了if了
                         if (null == lastBrokerName || mq.getBrokerName().equals(lastBrokerName))
                             return mq;
                     }
@@ -87,6 +92,7 @@ public class MQFaultStrategy {
                 log.error("Error occurred when selecting message queue", e);
             }
 
+            // 最终，直接轮询选下一个
             return tpInfo.selectOneMessageQueue();
         }
 

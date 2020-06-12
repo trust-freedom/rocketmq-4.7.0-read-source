@@ -73,6 +73,10 @@ public class RebalancePullImpl extends RebalanceImpl {
         return 0;
     }
 
+    /**
+     * 不自动拉取，所以不需要分配PullRequest？？
+     * @param pullRequestList
+     */
     @Override
     public void dispatchPullRequest(List<PullRequest> pullRequestList) {
     }
