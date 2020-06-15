@@ -99,7 +99,7 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * 供当前线程run()方法调用
+     * 供当前线程run()方法调用，根据当前PullRequest拉取消息
      * @param pullRequest
      */
     private void pullMessage(final PullRequest pullRequest) {

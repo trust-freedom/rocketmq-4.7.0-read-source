@@ -218,6 +218,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         final ProcessQueue processQueue = pullRequest.getProcessQueue(); // 处理队列ProcessQueue是PullRequest的成员变量
 
         // 如果处理队列当前状态未被丢弃，则更新 ProcessQueue 的 lastPullTimestamp 为 当前时间戳
+        // 可能会在rebalance时被dropped
         if (processQueue.isDropped()) {
             log.info("the pull request[{}] is dropped.", pullRequest.toString());
             return;
@@ -320,6 +321,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         // 消息拉取结果回调
         PullCallback pullCallback = new PullCallback() {
+            /**
+             * 拉取成功
+             */
             @Override
             public void onSuccess(PullResult pullResult) {
                 if (pullResult != null) {
@@ -340,7 +344,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                             // 如果MsgFoundList为空，可能是被Tag过滤掉了，立即再次执行拉取
                             if (pullResult.getMsgFoundList() == null || pullResult.getMsgFoundList().isEmpty()) {
                                 DefaultMQPushConsumerImpl.this.executePullRequestImmediately(pullRequest);
-                            } else {
+                            }
+                            // MsgFoundList 不为空
+                            else {
                                 firstMsgOffset = pullResult.getMsgFoundList().get(0).getQueueOffset();
 
                                 DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullTPS(pullRequest.getConsumerGroup(),
@@ -372,6 +378,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                 }
                             }
 
+
+                            // 校验 Request请求 和 PullResult 的 偏移量大小，是否有问题
                             if (pullResult.getNextBeginOffset() < prevRequestOffset
                                 || firstMsgOffset < prevRequestOffset) {
                                 log.warn(
@@ -433,6 +441,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 }
             }
 
+            /**
+             * 拉取失败
+             */
             @Override
             public void onException(Throwable e) {
                 if (!pullRequest.getMessageQueue().getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -631,7 +642,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 //【MQClientInstance】创建MQClient连接工厂，用于和broker交互
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQPushConsumer, this.rpcHook);
 
-                //【RebalanceImpl】消息重新负载实现类
+                //【RebalanceImpl】消息重新负载实现类 （Queue消费队列在客户端的负载均衡）
                 this.rebalanceImpl.setConsumerGroup(this.defaultMQPushConsumer.getConsumerGroup());
                 this.rebalanceImpl.setMessageModel(this.defaultMQPushConsumer.getMessageModel());
                 this.rebalanceImpl.setAllocateMessageQueueStrategy(this.defaultMQPushConsumer.getAllocateMessageQueueStrategy()); // 默认 AllocateMessageQueueAveragely
@@ -666,6 +677,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                 /**
                  * 【ConsumeMessageService】创建消费端消费线程服务，内部维护了一个线程池
+                 *                          拉取消息是 PullMessageService， 消费消息是 ConsumeMessageService，不是同个线程/服务
                  * 顺序：ConsumeMessageOrderlyService
                  * 并发：ConsumeMessageConcurrentlyService
                  */
@@ -868,7 +880,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             }
         }
 
-        // pullInterval
+        // pullInterval  拉取消息间隔，默认 0
         if (this.defaultMQPushConsumer.getPullInterval() < 0 || this.defaultMQPushConsumer.getPullInterval() > 65535) {
             throw new MQClientException(
                 "pullInterval Out of range [0, 65535]"
@@ -876,7 +888,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 null);
         }
 
-        // consumeMessageBatchMaxSize
+        // consumeMessageBatchMaxSize  消费线程池中每个消费任务一次处理的消息数量，默认 1
         if (this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize() < 1
             || this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize() > 1024) {
             throw new MQClientException(
@@ -885,7 +897,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 null);
         }
 
-        // pullBatchSize
+        // pullBatchSize  向Broker拉取时，每次最多拉取多少条
         if (this.defaultMQPushConsumer.getPullBatchSize() < 1 || this.defaultMQPushConsumer.getPullBatchSize() > 1024) {
             throw new MQClientException(
                 "pullBatchSize Out of range [1, 1024]"
@@ -1226,6 +1238,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         return queueTimeSpan;
     }
 
+    /**
+     * 对Retry重试队列信息进行重置
+     * @param msgs
+     * @param consumerGroup
+     */
     public void resetRetryAndNamespace(final List<MessageExt> msgs, String consumerGroup) {
         final String groupTopic = MixAll.getRetryTopic(consumerGroup);
         for (MessageExt msg : msgs) {

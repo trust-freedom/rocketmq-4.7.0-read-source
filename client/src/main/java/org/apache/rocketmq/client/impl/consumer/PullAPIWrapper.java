@@ -148,7 +148,7 @@ public class PullAPIWrapper {
         final String expressionType,
         final long subVersion,
         final long offset,
-        final int maxNums,
+        final int maxNums,    // 本次拉取最大消息条数，默认 32
         final int sysFlag,
         final long commitOffset,
         final long brokerSuspendMaxTimeMillis,
@@ -218,8 +218,10 @@ public class PullAPIWrapper {
             return pullResult;
         }
 
+        // 没找到Broker地址信息
         throw new MQClientException("The broker[" + mq.getBrokerName() + "] not exist", null);
     }
+
 
     public long recalculatePullFromWhichNode(final MessageQueue mq) {
         if (this.isConnectBrokerByUser()) {
