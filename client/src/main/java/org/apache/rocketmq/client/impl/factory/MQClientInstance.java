@@ -693,7 +693,10 @@ public class MQClientInstance {
                                 this.brokerAddrTable.put(bd.getBrokerName(), bd.getBrokerAddrs());
                             }
 
-                            // Update Pub info
+                            /**
+                             * Update Pub info  更新TopicPublishInfo
+                             * 会使用 QueueDatas 中的 写队列数量
+                             */
                             {
                                 TopicPublishInfo publishInfo = topicRouteData2TopicPublishInfo(topic, topicRouteData);
                                 publishInfo.setHaveTopicRouterInfo(true);
@@ -707,7 +710,10 @@ public class MQClientInstance {
                                 }
                             }
 
-                            // Update sub info
+                            /**
+                             * Update sub info  更新TopicSubscribeInfo
+                             * 会使用 QueueDatas 中的 读队列数量
+                             */
                             {
                                 Set<MessageQueue> subscribeInfo = topicRouteData2TopicSubscribeInfo(topic, topicRouteData);
                                 Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();

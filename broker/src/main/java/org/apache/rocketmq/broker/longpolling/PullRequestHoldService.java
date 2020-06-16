@@ -69,17 +69,21 @@ public class PullRequestHoldService extends ServiceThread {
         log.info("{} service started", this.getServiceName());
         while (!this.isStopped()) {
             try {
+                /**
+                 * 等待
+                 */
                 // 如果开启长轮询，每 5s 尝试一次，判断新消息是否到达
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                     this.waitForRunning(5 * 1000);
                 }
-                // 如果未开启长轮询，则默认等待 ls 再次尝试，可以通过 BrokerConfig#shortPollingTimeMills 改变等待时间
+                // 如果未开启长轮询，则默认等待 1s 再次尝试，可以通过 BrokerConfig#shortPollingTimeMills 改变等待时间
                 else {
                     this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
                 }
 
                 long beginLockTimestamp = this.systemClock.now();
-                this.checkHoldRequest(); // 遍历拉取任务表，检查偏移量，看是否有可以唤醒
+                // 遍历拉取任务表，检查偏移量，看是否有可以唤醒
+                this.checkHoldRequest();
                 long costTime = this.systemClock.now() - beginLockTimestamp;
                 if (costTime > 5 * 1000) {
                     log.info("[NOTIFYME] check hold request cost {} ms.", costTime);
@@ -107,6 +111,7 @@ public class PullRequestHoldService extends ServiceThread {
             if (2 == kArray.length) {
                 String topic = kArray[0];
                 int queueId = Integer.parseInt(kArray[1]);
+                // 根据topic+queueId 获取 ConsumeQueue的 最大offset
                 final long offset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                 try {
                     this.notifyMessageArriving(topic, queueId, offset);

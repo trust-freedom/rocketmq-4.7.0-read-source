@@ -2041,9 +2041,15 @@ public class DefaultMessageStore implements MessageStore {
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
-                                    //【转发给 CommitLogDispatcherBuildConsumeQueue + CommitLogDispatcherBuildIndex】
+                                    /**
+                                     * 【转发给 CommitLogDispatcherBuildConsumeQueue + CommitLogDispatcherBuildIndex】
+                                     */
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    /**
+                                     * 【如果Broker不是Slave、且开启了LongPolling，唤醒Hold住的拉取请求】
+                                     *  调用 PullRequestHoldService.notifyMessageArriving
+                                     */
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
@@ -2061,7 +2067,8 @@ public class DefaultMessageStore implements MessageStore {
                                             .getSinglePutMessageTopicSizeTotal(dispatchRequest.getTopic())
                                             .addAndGet(dispatchRequest.getMsgSize());
                                     }
-                                } else if (size == 0) {
+                                }
+                                else if (size == 0) {
                                     this.reputFromOffset = DefaultMessageStore.this.commitLog.rollNextFile(this.reputFromOffset);
                                     readSize = result.getSize();
                                 }
