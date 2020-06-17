@@ -574,6 +574,7 @@ public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements 
         final GetMaxOffsetRequestHeader requestHeader =
             (GetMaxOffsetRequestHeader) request.decodeCommandCustomHeader(GetMaxOffsetRequestHeader.class);
 
+        // 获取 Topic 的 Queue 的 最大偏移量
         long offset = this.brokerController.getMessageStore().getMaxOffsetInQueue(requestHeader.getTopic(), requestHeader.getQueueId());
 
         responseHeader.setOffset(offset);

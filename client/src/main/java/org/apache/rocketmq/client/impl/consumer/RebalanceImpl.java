@@ -262,6 +262,11 @@ public abstract class RebalanceImpl {
                 // 从Topic订阅信息缓存表中 获取Topic的队列信息
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
+                    /**
+                     * 和集群模式一样，会更新 "ProcessQueueTable 当前消费者负载的消息队列缓存表 ConcurrentMap<MessageQueue, ProcessQueue>"
+                     *   也就是说会计算从哪儿消费
+                     *   广播消费新创建的ConsumeGroup也是 CONSUME_FROM_LAST_OFFSET
+                     */
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
                     if (changed) {
                         this.messageQueueChanged(topic, mqSet, mqSet);
@@ -336,8 +341,11 @@ public abstract class RebalanceImpl {
                         allocateResultSet.addAll(allocateResult);
                     }
 
-                    // 更新 "ProcessQueueTable 当前消费者负载的消息队列缓存表 ConcurrentMap<MessageQueue, ProcessQueue>"
-                    // 有进有出
+                    /**
+                     * 更新 "ProcessQueueTable 当前消费者负载的消息队列缓存表 ConcurrentMap<MessageQueue, ProcessQueue>"
+                     *   有进有出
+                     *   会计算从哪儿消费
+                     */
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, allocateResultSet, isOrder);
                     if (changed) {
                         log.info(

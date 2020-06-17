@@ -1354,6 +1354,10 @@ public class CommitLog {
         }
     }
 
+
+    /**
+     * 异步刷盘：FlushRealTimeService
+     */
     class FlushRealTimeService extends FlushCommitLogService {
         private long lastFlushTimestamp = 0;
         private long printTimes = 0;
@@ -1439,6 +1443,9 @@ public class CommitLog {
         }
     }
 
+
+
+
     public static class GroupCommitRequest {
         private final long nextOffset;
         private CompletableFuture<PutMessageStatus> flushOKFuture = new CompletableFuture<>();
@@ -1476,8 +1483,10 @@ public class CommitLog {
 
     }
 
+
+
     /**
-     * GroupCommit Service
+     * 同步刷盘：GroupCommitService
      * 写CommitLog的ByteBuffer时串行的，上锁的，但刷盘是可以提交多个刷盘请求，一起刷的
      */
     class GroupCommitService extends FlushCommitLogService {
@@ -1600,6 +1609,9 @@ public class CommitLog {
             return 1000 * 60 * 5;
         }
     }
+
+
+
 
     class DefaultAppendMessageCallback implements AppendMessageCallback {
         // File at the end of the minimum fixed length empty

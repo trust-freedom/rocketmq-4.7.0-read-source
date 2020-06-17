@@ -804,6 +804,12 @@ public class DefaultMessageStore implements MessageStore {
         return getResult;
     }
 
+    /**
+     * 获取Topic的Queue的最大偏移量
+     * @param topic Topic name.
+     * @param queueId Queue ID.
+     * @return
+     */
     public long getMaxOffsetInQueue(String topic, int queueId) {
         ConsumeQueue logic = this.findConsumeQueue(topic, queueId);
         if (logic != null) {

@@ -190,9 +190,10 @@ public class RebalancePushImpl extends RebalanceImpl {
                     if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         result = 0L;
                     }
-                    // 普通Topic，从MessageQueue的最大偏移量开始
+                    // 普通Topic，从MessageQueue的最大偏移量开始（ConsumeQueue当前的最大偏移量）
                     else {
                         try {
+                            // 查询某个Topic的某个Queue的最大偏移量
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
                         } catch (MQClientException e) {
                             result = -1;
