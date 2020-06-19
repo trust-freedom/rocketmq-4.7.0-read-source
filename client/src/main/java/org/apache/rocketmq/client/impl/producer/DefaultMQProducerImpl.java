@@ -628,12 +628,20 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             //Reset topic with namespace during resend.
                             msg.setTopic(this.defaultMQProducer.withNamespace(msg.getTopic()));
                         }
+
+                        // 从第一次尝试发送 到 现在，耗费了多长时间
                         long costTime = beginTimestampPrev - beginTimestampFirst;
+                        // 如果 “从第一次发送到现在耗费的时间” 已经大于 超时时间（3s），超时返回
                         if (timeout < costTime) {
                             callTimeout = true;
                             break;
                         }
 
+                        /**
+                         * 发送核心实现
+                         *   超时时间： timeout - costTime，即 3秒-已经耗费的时间（可能是之前发送失败的时间之和）
+                         *   也就是说，包括内部重试，总的超时时间不能超过默认的3秒
+                         */
                         sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
                         endTimestamp = System.currentTimeMillis();
 

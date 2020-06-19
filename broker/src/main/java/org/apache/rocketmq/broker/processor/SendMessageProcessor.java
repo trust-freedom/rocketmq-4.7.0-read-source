@@ -497,6 +497,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         switch (putMessageResult.getPutMessageStatus()) {
             // Success
+            // 以下4种情况被认为“成功”
             case PUT_OK:
                 sendOK = true;
                 response.setCode(ResponseCode.SUCCESS);
@@ -515,6 +516,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 break;
 
             // Failed
+            // 以下情况被认为“失败”
             case CREATE_MAPEDFILE_FAILED:
                 response.setCode(ResponseCode.SYSTEM_ERROR);
                 response.setRemark("create mapped file failed, server is busy or broken.");
