@@ -28,17 +28,17 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.utils.ThreadUtils;
 
 /**
- * À­È¡ÏûÏ¢µÄÏß³Ì
+ * æ‹‰å–æ¶ˆæ¯çš„çº¿ç¨‹
  */
 public class PullMessageService extends ServiceThread {
     private final InternalLogger log = ClientLogger.getLog();
 
-    // ´æ·ÅPullRequestµÄ×èÈû¶ÓÁĞ£¬
+    // å­˜æ”¾PullRequestçš„é˜»å¡é˜Ÿåˆ—
     private final LinkedBlockingQueue<PullRequest> pullRequestQueue = new LinkedBlockingQueue<PullRequest>();
 
     private final MQClientInstance mQClientFactory;
 
-    // µ¥Ïß³Ì¶¨Ê±Ïß³Ì³Ø£¬ÓÃÓÚÑÓ³ÙÒ»¶ÎÊ±¼äÏû·Ñ
+    // å•çº¿ç¨‹å®šæ—¶çº¿ç¨‹æ± ï¼Œç”¨äºå»¶è¿Ÿä¸€æ®µæ—¶é—´æ¶ˆè´¹
     private final ScheduledExecutorService scheduledExecutorService = Executors
         .newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
@@ -52,7 +52,7 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * ¸ô timeDelay ºÁÃëºó£¬ÔÙ°ÑPullRequest·Åµ½×èÈû¶ÓÁĞ£¬´Ó¶øÖ´ĞĞÀ­È¡
+     * éš” timeDelay æ¯«ç§’åï¼Œå†æŠŠPullRequestæ”¾åˆ°é˜»å¡é˜Ÿåˆ—ï¼Œä»è€Œæ‰§è¡Œæ‹‰å–
      * @param pullRequest
      * @param timeDelay
      */
@@ -70,7 +70,7 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * ÂíÉÏ°Ñ PullRequest ·Åµ½×èÈû¶ÓÁĞ£¬ÈÃrun()·½·¨¿ÉÒÔ»ñÈ¡µ½£¬Á¢¼´Ö´ĞĞÀ­È¡
+     * é©¬ä¸ŠæŠŠ PullRequest æ”¾åˆ°é˜»å¡é˜Ÿåˆ—ï¼Œè®©run()æ–¹æ³•å¯ä»¥è·å–åˆ°ï¼Œç«‹å³æ‰§è¡Œæ‹‰å–
      * @param pullRequest
      */
     public void executePullRequestImmediately(final PullRequest pullRequest) {
@@ -82,7 +82,7 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * ¸ôtimeDelay ºÁÃëºó£¬ÔÙÖ´ĞĞRunnableÈÎÎñ
+     * éš” timeDelay æ¯«ç§’åï¼Œå†æ‰§è¡ŒRunnableä»»åŠ¡
      * @param r
      * @param timeDelay
      */
@@ -99,15 +99,15 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * ¹©µ±Ç°Ïß³Ìrun()·½·¨µ÷ÓÃ£¬¸ù¾İµ±Ç°PullRequestÀ­È¡ÏûÏ¢
+     * ä¾›å½“å‰çº¿ç¨‹run()æ–¹æ³•è°ƒç”¨ï¼Œæ ¹æ®å½“å‰PullRequestæ‹‰å–æ¶ˆæ¯
      * @param pullRequest
      */
     private void pullMessage(final PullRequest pullRequest) {
-        // »ñÈ¡µ±Ç° ConsumerGroup ¶ÔÓ¦µÄ MQConsumerInner
+        // è·å–å½“å‰ ConsumerGroup å¯¹åº”çš„ MQConsumerInner
         final MQConsumerInner consumer = this.mQClientFactory.selectConsumer(pullRequest.getConsumerGroup());
         if (consumer != null) {
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
-            // À­È¡ÏûÏ¢
+            // æ‹‰å–æ¶ˆæ¯
             impl.pullMessage(pullRequest);
         } else {
             log.warn("No matched consumer for the PullRequest {}, drop it", pullRequest);
@@ -120,9 +120,9 @@ public class PullMessageService extends ServiceThread {
 
         while (!this.isStopped()) {
             try {
-                // ´Ó pullRequestQueue×èÈû¶ÓÁĞÖĞ»ñÈ¡Ò»¸ö PullRequest
+                // ä» pullRequestQueueé˜»å¡é˜Ÿåˆ—ä¸­è·å–ä¸€ä¸ª PullRequest
                 PullRequest pullRequest = this.pullRequestQueue.take();
-                // Ê¹ÓÃ PullRequest Ö´ĞĞÀ­È¡ÏûÏ¢
+                // ä½¿ç”¨ PullRequest æ‰§è¡Œæ‹‰å–æ¶ˆæ¯
                 this.pullMessage(pullRequest);
             } catch (InterruptedException ignored) {
             } catch (Exception e) {

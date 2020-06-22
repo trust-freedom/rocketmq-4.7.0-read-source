@@ -45,10 +45,10 @@ public class ProcessQueue {
     private final static long PULL_MAX_IDLE_TIME = Long.parseLong(System.getProperty("rocketmq.client.pull.pullMaxIdleTime", "120000"));
     private final InternalLogger log = ClientLogger.getLog();
 
-    // ProcessQueue ÊÇÓëÒ»¸ö MessageQueue ¶ÔÓ¦µÄ£¬¶à¸öÏß³Ì»á¹²Í¬²Ù×÷£¬¹ÊĞèÒª¶ÁĞ´Ëø
+    // ProcessQueue æ˜¯ä¸ä¸€ä¸ª MessageQueue å¯¹åº”çš„ï¼Œå¤šä¸ªçº¿ç¨‹ä¼šå…±åŒæ“ä½œï¼Œæ•…éœ€è¦è¯»å†™é”
     private final ReadWriteLock lockTreeMap = new ReentrantReadWriteLock();
 
-    // À­È¡ÏûÏ¢ºó£¬´æ´¢ÔÚ msgTreeMap
+    // æ‹‰å–æ¶ˆæ¯åï¼Œå­˜å‚¨åœ¨ msgTreeMap
     private final TreeMap<Long, MessageExt> msgTreeMap = new TreeMap<Long, MessageExt>();
 
     private final AtomicLong msgCount = new AtomicLong();
@@ -67,7 +67,7 @@ public class ProcessQueue {
     private volatile long lastLockTimestamp = System.currentTimeMillis();
     private volatile boolean consuming = false;
 
-    // broker¶Ë»¹ÓĞ¶àÉÙÏûÏ¢¶Ñ»ı£¬Î´Ïû·Ñ£¨¸ù¾İ broker¶ËmaxOffset - µÃµ½ÏûÏ¢µÄoffset£©
+    // brokerç«¯è¿˜æœ‰å¤šå°‘æ¶ˆæ¯å †ç§¯ï¼Œæœªæ¶ˆè´¹ï¼ˆæ ¹æ® brokerç«¯maxOffset - å¾—åˆ°æ¶ˆæ¯çš„offsetï¼‰
     private volatile long msgAccCnt = 0;
 
 
@@ -80,24 +80,24 @@ public class ProcessQueue {
     }
 
     /**
-     * Çå³ş¹ıÆÚÏûÏ¢£¬¶¨Ê±ÈÎÎñµ÷ÓÃ
+     * æ¸…é™¤è¿‡æœŸæ¶ˆæ¯ï¼Œå®šæ—¶ä»»åŠ¡è°ƒç”¨
      */
     public void cleanExpiredMsg(DefaultMQPushConsumer pushConsumer) {
-        // Èç¹ûÊÇË³ĞòÏû·Ñ£¬²»´¦Àí
+        // å¦‚æœæ˜¯é¡ºåºæ¶ˆè´¹ï¼Œä¸å¤„ç†
         if (pushConsumer.getDefaultMQPushConsumerImpl().isConsumeOrderly()) {
             return;
         }
 
-        // Ñ­»·´ÎÊı£¬ÖÁ¶à 16 ´Î
-        // Ã¿´ÎÕÒ msgTreeMap µÚÒ»¸öÔªËØ£¬Èç¹û³¬Ê±£¬Ôò·¢»Ø£¬²¢É¾³ı
+        // å¾ªç¯æ¬¡æ•°ï¼Œè‡³å¤š 16 æ¬¡
+        // æ¯æ¬¡æ‰¾ msgTreeMap ç¬¬ä¸€ä¸ªå…ƒç´ ï¼Œå¦‚æœè¶…æ—¶ï¼Œåˆ™å‘å›ï¼Œå¹¶åˆ é™¤
         int loop = msgTreeMap.size() < 16 ? msgTreeMap.size() : 16;
         for (int i = 0; i < loop; i++) {
             MessageExt msg = null;
             try {
-                // ¶ÁËø
+                // è¯»é”
                 this.lockTreeMap.readLock().lockInterruptibly();
                 try {
-                    // msgTreeMapÖĞµÚÒ»¸öÔªËØÈç¹û´ïµ½ÁË ConsumeTimeout Ïû·Ñ³¬Ê±£¨Ä¬ÈÏ15·ÖÖÓ£©£¬½«Æä sendMessageBack
+                    // msgTreeMapä¸­ç¬¬ä¸€ä¸ªå…ƒç´ å¦‚æœè¾¾åˆ°äº† ConsumeTimeout æ¶ˆè´¹è¶…æ—¶ï¼ˆé»˜è®¤15åˆ†é’Ÿï¼‰ï¼Œå°†å…¶ sendMessageBack
                     if (!msgTreeMap.isEmpty() &&
                             System.currentTimeMillis() - Long.parseLong(MessageAccessor.getConsumeStartTimeStamp(msgTreeMap.firstEntry().getValue())) > pushConsumer.getConsumeTimeout() * 60 * 1000) {
                         msg = msgTreeMap.firstEntry().getValue();
@@ -113,19 +113,19 @@ public class ProcessQueue {
             }
 
             try {
-                // ½«ÕÒµ½µÄ ProcessQueue ÖĞµÄ³¬Ê±Î´Ïû·ÑÏûÏ¢£¬·¢»Ø£¬delay¼¶±ğ 3
+                // å°†æ‰¾åˆ°çš„ ProcessQueue ä¸­çš„è¶…æ—¶æœªæ¶ˆè´¹æ¶ˆæ¯ï¼Œå‘å›ï¼Œdelayçº§åˆ« 3
                 pushConsumer.sendMessageBack(msg, 3);
                 log.info("send expire msg back. topic={}, msgId={}, storeHost={}, queueId={}, queueOffset={}", msg.getTopic(), msg.getMsgId(), msg.getStoreHost(), msg.getQueueId(), msg.getQueueOffset());
 
                 try {
-                    // Ğ´Ëø
+                    // å†™é”
                     this.lockTreeMap.writeLock().lockInterruptibly();
                     try {
-                        // ÅĞ¶Ï msg »¹ÊÇ msgTreeMap µÄµÚÒ»ÌõÏûÏ¢£¿£¿
-                        // ¿ÉÄÜÔÚÉÏÃæÅĞ¶Ï³¬Ê±ºó£¬msg ÓÖ±»Ïû·ÑÁË£¿£¿
+                        // åˆ¤æ–­ msg è¿˜æ˜¯ msgTreeMap çš„ç¬¬ä¸€æ¡æ¶ˆæ¯ï¼Ÿï¼Ÿ
+                        // å¯èƒ½åœ¨ä¸Šé¢åˆ¤æ–­è¶…æ—¶åï¼Œmsg åˆè¢«æ¶ˆè´¹äº†ï¼Ÿï¼Ÿ
                         if (!msgTreeMap.isEmpty() && msg.getQueueOffset() == msgTreeMap.firstKey()) {
                             try {
-                                // É¾³ıÕâÌõmsg
+                                // åˆ é™¤è¿™æ¡msg
                                 removeMessage(Collections.singletonList(msg));
                             } catch (Exception e) {
                                 log.error("send expired msg exception", e);
@@ -145,7 +145,7 @@ public class ProcessQueue {
 
 
     /**
-     * Ìí¼ÓÏûÏ¢µ½ msgTreeMap
+     * æ·»åŠ æ¶ˆæ¯åˆ° msgTreeMap
      */
     public boolean putMessage(final List<MessageExt> msgs) {
         boolean dispatchToConsume = false;
@@ -154,30 +154,30 @@ public class ProcessQueue {
             try {
                 int validMsgCnt = 0;
                 for (MessageExt msg : msgs) {
-                    // ÒÔÏûÏ¢ÔÚMessageQueueµÄÆ«ÒÆÁ¿Îªkey£¬ÏûÏ¢±¾ÉíÎªvalue
+                    // ä»¥æ¶ˆæ¯åœ¨MessageQueueçš„åç§»é‡ä¸ºkeyï¼Œæ¶ˆæ¯æœ¬èº«ä¸ºvalue
                     MessageExt old = msgTreeMap.put(msg.getQueueOffset(), msg);
 
-                    // old==null£¬ËµÃ÷ key ²»´æÔÚ
+                    // old==nullï¼Œè¯´æ˜ key ä¸å­˜åœ¨
                     if (null == old) {
                         validMsgCnt++;
-                        this.queueOffsetMax = msg.getQueueOffset(); // ËµÃ÷²ÎÊıÖĞÀ­È¡»ØÀ´µÄmsgsÊÇÓĞË³ĞòµÄ£¬validateµÄÏûÏ¢µÄoffset¾ÍÊÇµ±Ç°ProcessQueueµÄ×î´óoffset
+                        this.queueOffsetMax = msg.getQueueOffset(); // è¯´æ˜å‚æ•°ä¸­æ‹‰å–å›æ¥çš„msgsæ˜¯æœ‰é¡ºåºçš„ï¼Œvalidateçš„æ¶ˆæ¯çš„offsetå°±æ˜¯å½“å‰ProcessQueueçš„æœ€å¤§offset
                         msgSize.addAndGet(msg.getBody().length);
                     }
                 }
                 msgCount.addAndGet(validMsgCnt);
 
                 if (!msgTreeMap.isEmpty() && !this.consuming) {
-                    dispatchToConsume = true; // Ë³ĞòÏû·Ñ ConsumeMessageOrderlyService ÖĞ»áÓÃµ½
+                    dispatchToConsume = true; // é¡ºåºæ¶ˆè´¹ ConsumeMessageOrderlyService ä¸­ä¼šç”¨åˆ°
                     this.consuming = true;
                 }
 
                 if (!msgs.isEmpty()) {
                     MessageExt messageExt = msgs.get(msgs.size() - 1);
-                    String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET); // broker¶ËMessageQueueµÄ×î´óÆ«ÒÆÁ¿
+                    String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET); // brokerç«¯MessageQueueçš„æœ€å¤§åç§»é‡
                     if (property != null) {
                         long accTotal = Long.parseLong(property) - messageExt.getQueueOffset();
                         if (accTotal > 0) {
-                            this.msgAccCnt = accTotal;  //ÏûÏ¢¶Ñ»ıÊıÁ¿£¿£¿»¹ÓĞ¶àÉÙÌõÏûÏ¢Ã»Ïû·Ñ£¿£¿
+                            this.msgAccCnt = accTotal;  // æ¶ˆæ¯å †ç§¯æ•°é‡ï¼Ÿï¼Ÿè¿˜æœ‰å¤šå°‘æ¡æ¶ˆæ¯æ²¡æ¶ˆè´¹ï¼Ÿï¼Ÿ
                         }
                     }
                 }
@@ -193,7 +193,7 @@ public class ProcessQueue {
 
 
     /**
-     * msgTreeMapÖĞÔªËØµÄkeyµÄ×î´ó²îÖµ£¨keyÊÇMessageQueueµÄoffset£¬Ò²¾ÍÊÇoffsetµÄ×î´ó²îÖµ£©
+     * msgTreeMapä¸­å…ƒç´ çš„keyçš„æœ€å¤§å·®å€¼ï¼ˆkeyæ˜¯MessageQueueçš„offsetï¼Œä¹Ÿå°±æ˜¯offsetçš„æœ€å¤§å·®å€¼ï¼‰
      * @return
      */
     public long getMaxSpan() {
@@ -215,7 +215,8 @@ public class ProcessQueue {
 
 
     /**
-     * ´ÓmsgTreeMapÉ¾³ıÏûÏ¢
+     * ä»msgTreeMapåˆ é™¤æ¶ˆæ¯
+     * è¿”å›çš„æ˜¯ åˆ é™¤å‚æ•°ä¸­çš„msgsåï¼ŒmsgTreeMapçš„firstKeyï¼Œå³msgTreeMapå½“å‰æ¶ˆæ¯çš„æœ€å°åç§»é‡
      * @param msgs
      * @return
      */
@@ -223,6 +224,7 @@ public class ProcessQueue {
         long result = -1;
         final long now = System.currentTimeMillis();
         try {
+            // å†™é”
             this.lockTreeMap.writeLock().lockInterruptibly();
             this.lastConsumeTimestamp = now;
             try {
@@ -295,7 +297,7 @@ public class ProcessQueue {
     }
 
     /**
-     * Ë³ĞòÏû·Ñ³É¹¦Ê±»ácommit
+     * é¡ºåºæ¶ˆè´¹æˆåŠŸæ—¶ä¼šcommit
      * @return
      */
     public long commit() {
@@ -304,16 +306,16 @@ public class ProcessQueue {
             try {
                 Long offset = this.consumingMsgOrderlyTreeMap.lastKey();
 
-                // ÏûÏ¢ÊıÁ¿¼õÈ¥consumingMsgOrderlyTreeMap.size()
+                // æ¶ˆæ¯æ•°é‡å‡å»consumingMsgOrderlyTreeMap.size()
                 msgCount.addAndGet(0 - this.consumingMsgOrderlyTreeMap.size());
-                // ÏûÏ¢sizeÒÀ´Î¼õÈ¥msg.getBody().length
+                // æ¶ˆæ¯sizeä¾æ¬¡å‡å»msg.getBody().length
                 for (MessageExt msg : this.consumingMsgOrderlyTreeMap.values()) {
                     msgSize.addAndGet(0 - msg.getBody().length);
                 }
-                // Çå³ıconsumingMsgOrderlyTreeMap
+                // æ¸…é™¤consumingMsgOrderlyTreeMap
                 this.consumingMsgOrderlyTreeMap.clear();
 
-                // ·µ»ØoffsetÊÇ consumingMsgOrderlyTreeMap.lastKey() + 1
+                // è¿”å›offsetæ˜¯ consumingMsgOrderlyTreeMap.lastKey() + 1
                 if (offset != null) {
                     return offset + 1;
                 }
@@ -347,18 +349,18 @@ public class ProcessQueue {
         List<MessageExt> result = new ArrayList<MessageExt>(batchSize);
         final long now = System.currentTimeMillis();
         try {
-            // Ğ´Ëø
+            // å†™é”
             this.lockTreeMap.writeLock().lockInterruptibly();
             this.lastConsumeTimestamp = now;
             try {
-                // ²»ÒÔ consuming ÅĞ¶Ï£¬Ö»Òª msgTreeMap ²»Îª¿Õ¾Í¿ÉÒÔtakeMessags
+                // ä¸ä»¥ consuming åˆ¤æ–­ï¼Œåªè¦ msgTreeMap ä¸ä¸ºç©ºå°±å¯ä»¥takeMessags
                 if (!this.msgTreeMap.isEmpty()) {
-                    // Ñ­»· batchSize ´Î
+                    // å¾ªç¯ batchSize æ¬¡
                     for (int i = 0; i < batchSize; i++) {
-                        Map.Entry<Long, MessageExt> entry = this.msgTreeMap.pollFirstEntry(); // È¡³ö First Entry
+                        Map.Entry<Long, MessageExt> entry = this.msgTreeMap.pollFirstEntry(); // å–å‡º First Entry
                         if (entry != null) {
-                            result.add(entry.getValue()); // ·µ»ØµÄ½á¹û¼¯
-                            consumingMsgOrderlyTreeMap.put(entry.getKey(), entry.getValue()); // ÎªÁËË³ĞòÏû·Ñ£¬msgTreeMapµÄ×Ó¼¯
+                            result.add(entry.getValue()); // è¿”å›çš„ç»“æœé›†
+                            consumingMsgOrderlyTreeMap.put(entry.getKey(), entry.getValue()); // ä¸ºäº†é¡ºåºæ¶ˆè´¹ï¼ŒmsgTreeMapçš„å­é›†
                         } else {
                             break;
                         }
