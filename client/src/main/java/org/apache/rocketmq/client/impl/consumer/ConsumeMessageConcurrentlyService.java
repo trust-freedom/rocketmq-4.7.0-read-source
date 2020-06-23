@@ -325,7 +325,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
 
 
         /**
-         * 如果消费失败，需要重新发回broker
+         * 【 如果消费失败，需要重新发回broker 】
          * 根据不同消费模式执行逻辑
          */
         switch (this.defaultMQPushConsumer.getMessageModel()) {
@@ -368,10 +368,15 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         }
 
         /**
-         * 更新offset偏移量
+         * 【 更新offset偏移量 】
          * ProcessQueue.removeMessage()
          * 返回的偏移量是移除该批消息后ProcessQueue中的msgTreeMap.firstKey最小的偏移量，然后用该偏移量更新消息消费进度 ，以便在消费者重启后能从上一次的消费进度开始消费，避免消息重复消费
          * 自己：但如果并发消费了10条消息，偏移量从1-10，当前线程消费的是第5条，removeMessage后返回的偏移量是1？？
+         * 解答：
+         * 确实是按照ProcessQueue中的最小偏移量更新，也就是说更新消费进度与消费任务中的消息没什么关系
+         * 如果某条消息消费是发生了死锁导致无法被消费，那么可能一直以这条消息的offset更新偏移量
+         * 所以在消费之前引入了“流控”，DefaultMQPushConsumer#consumeConcurrentlyMaxSpan=2000，
+         * 消息处理队列ProceeQueue中最大消息偏移与最小偏移量不能超过该值，如超过该值，触发流控，将延迟该消息队列的消息拉取
          *
          * 值得重点注意的是当消息监听器返回 RECONSUME_LATER ，消息消费进度也会向前推进
          * 用ProcessQueue中最小的队列偏移量调用消息消费进度存储器 OffsetStore 更新消费进度

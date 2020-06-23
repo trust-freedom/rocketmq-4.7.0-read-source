@@ -42,13 +42,13 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 public abstract class RebalanceImpl {
     protected static final InternalLogger log = ClientLogger.getLog();
-    // µ±Ç°Ïû·ÑÕß¸ºÔØµÄÏûÏ¢¶ÓÁĞ»º´æ±í
+    // å½“å‰æ¶ˆè´¹è€…è´Ÿè½½çš„æ¶ˆæ¯é˜Ÿåˆ—ç¼“å­˜è¡¨
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
         new ConcurrentHashMap<String, Set<MessageQueue>>();
 
-    // Ã¿¸öTopicµÄ¶©ÔÄĞÅÏ¢
-    // ÔÚµ÷ÓÃÏû·ÑÕßDefaultMQPushConsumerlmpl#subscribe·½·¨Ê±Ìî³ä
+    // æ¯ä¸ªTopicçš„è®¢é˜…ä¿¡æ¯
+    // åœ¨è°ƒç”¨æ¶ˆè´¹è€…DefaultMQPushConsumerlmpl#subscribeæ–¹æ³•æ—¶å¡«å……
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
         new ConcurrentHashMap<String, SubscriptionData>();
     protected String consumerGroup;
@@ -219,17 +219,17 @@ public abstract class RebalanceImpl {
 
     /**
      *
-     * @param isOrder  ÊÇ·ñË³ĞòÏû·Ñ
+     * @param isOrder  æ˜¯å¦é¡ºåºæ¶ˆè´¹
      */
     public void doRebalance(final boolean isOrder) {
-        // Ã¿¸öTopicµÄ¶©ÔÄĞÅÏ¢
-        // ÔÚµ÷ÓÃÏû·ÑÕßDefaultMQPushConsumerlmpl#subscribe·½·¨Ê±Ìî³ä
+        // æ¯ä¸ªTopicçš„è®¢é˜…ä¿¡æ¯
+        // åœ¨è°ƒç”¨æ¶ˆè´¹è€…DefaultMQPushConsumerlmpl#subscribeæ–¹æ³•æ—¶å¡«å……
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
-                    // °´TopicÖØĞÂ·Ö²¼ÏûÏ¢¶ÓÁĞ
+                    // æŒ‰Topicé‡æ–°åˆ†å¸ƒæ¶ˆæ¯é˜Ÿåˆ—
                     this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -247,25 +247,25 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * °´TopicÖØĞÂ·Ö²¼ÏûÏ¢¶ÓÁĞ
+     * æŒ‰Topicé‡æ–°åˆ†å¸ƒæ¶ˆæ¯é˜Ÿåˆ—
      * @param topic
      * @param isOrder
      */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
             /**
-             * ¹ã²¥
-             * ÔÚ»ñÈ¡TopicµÄ¶ÓÁĞĞÅÏ¢ºó£¬Ã»ÓĞ×öÈÎºÎÉ¸Ñ¡£¬Ö±½Ó¸üĞÂ updateProcessQueueTableInRebalance()
-             * ¼´ µ±Ç°Ïû·ÑÕß¿ÉÒÔÏû·ÑËùÓĞ¶ÓÁĞ
+             * å¹¿æ’­
+             * åœ¨è·å–Topicçš„é˜Ÿåˆ—ä¿¡æ¯åï¼Œæ²¡æœ‰åšä»»ä½•ç­›é€‰ï¼Œç›´æ¥æ›´æ–° updateProcessQueueTableInRebalance()
+             * å³ å½“å‰æ¶ˆè´¹è€…å¯ä»¥æ¶ˆè´¹æ‰€æœ‰é˜Ÿåˆ—
              */
             case BROADCASTING: {
-                // ´ÓTopic¶©ÔÄĞÅÏ¢»º´æ±íÖĞ »ñÈ¡TopicµÄ¶ÓÁĞĞÅÏ¢
+                // ä»Topicè®¢é˜…ä¿¡æ¯ç¼“å­˜è¡¨ä¸­ è·å–Topicçš„é˜Ÿåˆ—ä¿¡æ¯
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
                     /**
-                     * ºÍ¼¯ÈºÄ£Ê½Ò»Ñù£¬»á¸üĞÂ "ProcessQueueTable µ±Ç°Ïû·ÑÕß¸ºÔØµÄÏûÏ¢¶ÓÁĞ»º´æ±í ConcurrentMap<MessageQueue, ProcessQueue>"
-                     *   Ò²¾ÍÊÇËµ»á¼ÆËã´ÓÄÄ¶ùÏû·Ñ
-                     *   ¹ã²¥Ïû·ÑĞÂ´´½¨µÄConsumeGroupÒ²ÊÇ CONSUME_FROM_LAST_OFFSET
+                     * å’Œé›†ç¾¤æ¨¡å¼ä¸€æ ·ï¼Œä¼šæ›´æ–° "ProcessQueueTable å½“å‰æ¶ˆè´¹è€…è´Ÿè½½çš„æ¶ˆæ¯é˜Ÿåˆ—ç¼“å­˜è¡¨ ConcurrentMap<MessageQueue, ProcessQueue>"
+                     *   ä¹Ÿå°±æ˜¯è¯´ä¼šè®¡ç®—ä»å“ªå„¿æ¶ˆè´¹
+                     *   å¹¿æ’­æ¶ˆè´¹æ–°åˆ›å»ºçš„ConsumeGroupä¹Ÿæ˜¯ CONSUME_FROM_LAST_OFFSET
                      */
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
                     if (changed) {
@@ -282,14 +282,14 @@ public abstract class RebalanceImpl {
                 break;
             }
             /**
-             * ¼¯Èº
-             * ÔÚ»ñÈ¡TopicµÄ¶ÓÁĞĞÅÏ¢ºó£¬»¹ĞèÒª¸ù¾İconsumeGroupÕÒµ½ËùÓĞconsumer£¬¾­¹ı·ÖÅäËã·¨µÄ·ÖÅäºó£¬°Ñ·ÖÅä¸øµ±Ç°Ïû·ÑÕßµÄ¶ÓÁĞ£¬µ÷ÓÃ updateProcessQueueTableInRebalance()
-             * ¼´ µ±Ç°Ïû·ÑÕß¿ÉÒÔÏû·Ñ ·ÖÅä¸øËüµÄ¶ÓÁĞ
+             * é›†ç¾¤
+             * åœ¨è·å–Topicçš„é˜Ÿåˆ—ä¿¡æ¯åï¼Œè¿˜éœ€è¦æ ¹æ®consumeGroupæ‰¾åˆ°æ‰€æœ‰consumerï¼Œç»è¿‡åˆ†é…ç®—æ³•çš„åˆ†é…åï¼ŒæŠŠåˆ†é…ç»™å½“å‰æ¶ˆè´¹è€…çš„é˜Ÿåˆ—ï¼Œè°ƒç”¨ updateProcessQueueTableInRebalance()
+             * å³ å½“å‰æ¶ˆè´¹è€…å¯ä»¥æ¶ˆè´¹ åˆ†é…ç»™å®ƒçš„é˜Ÿåˆ—
              */
             case CLUSTERING: {
-                // ´ÓTopic¶©ÔÄĞÅÏ¢»º´æ±íÖĞ »ñÈ¡TopicµÄ¶ÓÁĞĞÅÏ¢
+                // ä»Topicè®¢é˜…ä¿¡æ¯ç¼“å­˜è¡¨ä¸­ è·å–Topicçš„é˜Ÿåˆ—ä¿¡æ¯
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
-                // ¸ù¾İ topic ÕÒµ½ BrokerµØÖ·£¬ÔÙ¸ù¾İ consumeGroup µ½ BrokerÕÒËùÓĞ×éÄÚµÄ ConsumeId
+                // æ ¹æ® topic æ‰¾åˆ° Brokeråœ°å€ï¼Œå†æ ¹æ® consumeGroup åˆ° Brokeræ‰¾æ‰€æœ‰ç»„å†…çš„ ConsumeId
                 List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);
                 if (null == mqSet) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -301,21 +301,21 @@ public abstract class RebalanceImpl {
                     log.warn("doRebalance, {} {}, get consumer id list failed", consumerGroup, topic);
                 }
 
-                // TopicµÄ¶ÓÁĞĞÅÏ¢ ºÍ consumerGroupÄÚµÄËùÓĞConsumeIdĞÅÏ¢ ¶¼²»Îª¿Õ£¬²Å½øĞĞ¸ºÔØ
+                // Topicçš„é˜Ÿåˆ—ä¿¡æ¯ å’Œ consumerGroupå†…çš„æ‰€æœ‰ConsumeIdä¿¡æ¯ éƒ½ä¸ä¸ºç©ºï¼Œæ‰è¿›è¡Œè´Ÿè½½
                 if (mqSet != null && cidAll != null) {
                     List<MessageQueue> mqAll = new ArrayList<MessageQueue>();
                     mqAll.addAll(mqSet);
 
-                    // Ê×ÏÈ¶Ô cidAll,mqAll ÅÅĞò£¬Õâ¸öºÜÖØÒª
-                    // Í¬Ò»¸öÏû·Ñ×éÄÚ¿´µ½µÄÊÓ Í¼±£³ÖÒ»ÖÂ£¬È·±£Í¬Ò»¸öÏû·Ñ¶ÓÁĞ²»»á±»¶à¸öÏû·ÑÕß·ÖÅä
+                    // é¦–å…ˆå¯¹ cidAll,mqAll æ’åºï¼Œè¿™ä¸ªå¾ˆé‡è¦
+                    // åŒä¸€ä¸ªæ¶ˆè´¹ç»„å†…çœ‹åˆ°çš„è§† å›¾ä¿æŒä¸€è‡´ï¼Œç¡®ä¿åŒä¸€ä¸ªæ¶ˆè´¹é˜Ÿåˆ—ä¸ä¼šè¢«å¤šä¸ªæ¶ˆè´¹è€…åˆ†é…
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
 
                     /**
-                     * ÏûÏ¢¶ÓÁĞ·ÖÅäËã·¨
-                     * Ä¬ÈÏ AllocateMessageQueueAveragely Æ½¾ù·ÖÅä
+                     * æ¶ˆæ¯é˜Ÿåˆ—åˆ†é…ç®—æ³•
+                     * é»˜è®¤ AllocateMessageQueueAveragely å¹³å‡åˆ†é…
                      *
-                     * ¾ÙÀıÀ´Ëµ£¬Èç¹ûÏÖÔÚÓĞ8¸öÏûÏ¢Ïû·Ñ¶ÓÁĞ ql, q2, q3 £¬q4£¬q5£¬q6£¬q7£¬q8£¬ÓĞ3¸öÏû·ÑÕßcl, c2, c3 £¬ÄÇÃ´¸ù¾İ¸Ã¸ºÔØËã·¨ £¬ÏûÏ¢¶ÓÁĞ·ÖÅäÈçÏÂ£º
+                     * ä¸¾ä¾‹æ¥è¯´ï¼Œå¦‚æœç°åœ¨æœ‰8ä¸ªæ¶ˆæ¯æ¶ˆè´¹é˜Ÿåˆ— ql, q2, q3 ï¼Œq4ï¼Œq5ï¼Œq6ï¼Œq7ï¼Œq8ï¼Œæœ‰3ä¸ªæ¶ˆè´¹è€…cl, c2, c3 ï¼Œé‚£ä¹ˆæ ¹æ®è¯¥è´Ÿè½½ç®—æ³• ï¼Œæ¶ˆæ¯é˜Ÿåˆ—åˆ†é…å¦‚ä¸‹ï¼š
                      * c1: q1, q2, q3
                      * c2: q4, q5, q6
                      * c3: q7, q8
@@ -324,12 +324,12 @@ public abstract class RebalanceImpl {
 
                     List<MessageQueue> allocateResult = null;
                     try {
-                        // ¾­¹ı·ÖÅäËã·¨ºó£¬¸øµ±Ç°Consume·ÖÅäQueue
+                        // ç»è¿‡åˆ†é…ç®—æ³•åï¼Œç»™å½“å‰Consumeåˆ†é…Queue
                         allocateResult = strategy.allocate(
                             this.consumerGroup,
-                            this.mQClientFactory.getClientId(), // µ±Ç°ConsumeId
-                            mqAll,  // TopicÏÂËùÓĞQueueĞÅÏ¢
-                            cidAll);// consumerGroupÄÚµÄËùÓĞConsumeIdĞÅÏ¢
+                            this.mQClientFactory.getClientId(), // å½“å‰ConsumeId
+                            mqAll,  // Topicä¸‹æ‰€æœ‰Queueä¿¡æ¯
+                            cidAll);// consumerGroupå†…çš„æ‰€æœ‰ConsumeIdä¿¡æ¯
                     } catch (Throwable e) {
                         log.error("AllocateMessageQueueStrategy.allocate Exception. allocateMessageQueueStrategyName={}", strategy.getName(),
                             e);
@@ -342,9 +342,9 @@ public abstract class RebalanceImpl {
                     }
 
                     /**
-                     * ¸üĞÂ "ProcessQueueTable µ±Ç°Ïû·ÑÕß¸ºÔØµÄÏûÏ¢¶ÓÁĞ»º´æ±í ConcurrentMap<MessageQueue, ProcessQueue>"
-                     *   ÓĞ½øÓĞ³ö
-                     *   »á¼ÆËã´ÓÄÄ¶ùÏû·Ñ
+                     * æ›´æ–° "ProcessQueueTable å½“å‰æ¶ˆè´¹è€…è´Ÿè½½çš„æ¶ˆæ¯é˜Ÿåˆ—ç¼“å­˜è¡¨ ConcurrentMap<MessageQueue, ProcessQueue>"
+                     *   æœ‰è¿›æœ‰å‡º
+                     *   ä¼šè®¡ç®—ä»å“ªå„¿æ¶ˆè´¹
                      */
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, allocateResultSet, isOrder);
                     if (changed) {
@@ -378,11 +378,11 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * ¸üĞÂ "ProcessQueueTable µ±Ç°Ïû·ÑÕß¸ºÔØµÄÏûÏ¢¶ÓÁĞ»º´æ±í"
-     * ÓĞ½øÓĞ³ö
+     * æ›´æ–° "ProcessQueueTable å½“å‰æ¶ˆè´¹è€…è´Ÿè½½çš„æ¶ˆæ¯é˜Ÿåˆ—ç¼“å­˜è¡¨"
+     * æœ‰è¿›æœ‰å‡º
      *
      * @param topic
-     * @param mqSet  ¸øµ±Ç°Consume·ÖÅäµÄQueue
+     * @param mqSet  ç»™å½“å‰Consumeåˆ†é…çš„Queue
      * @param isOrder
      * @return
      */
@@ -391,35 +391,35 @@ public abstract class RebalanceImpl {
         boolean changed = false;
 
         Iterator<Entry<MessageQueue, ProcessQueue>> it = this.processQueueTable.entrySet().iterator();
-        // ±éÀúÖ®Ç°µÄËùÓĞ MessageQueue:ProcessQueue
+        // éå†ä¹‹å‰çš„æ‰€æœ‰ MessageQueue:ProcessQueue
         /**
-         * ½«±¾´Î¸üĞÂ·ÖÅä¸øµ±Ç°Ïû·ÑÕßµÄÏûÏ¢¶ÓÁĞ¼¯ºÏ£¨mqSet£© Óë processQueueTable×ö¹ıÂË±È¶Ô
+         * å°†æœ¬æ¬¡æ›´æ–°åˆ†é…ç»™å½“å‰æ¶ˆè´¹è€…çš„æ¶ˆæ¯é˜Ÿåˆ—é›†åˆï¼ˆmqSetï¼‰ ä¸ processQueueTableåšè¿‡æ»¤æ¯”å¯¹
          */
         while (it.hasNext()) {
             Entry<MessageQueue, ProcessQueue> next = it.next();
             MessageQueue mq = next.getKey();
             ProcessQueue pq = next.getValue();
 
-            // Ö»´¦Àíµ±Ç°Topic
+            // åªå¤„ç†å½“å‰Topic
             if (mq.getTopic().equals(topic)) {
-                // Èç¹ûÖ®Ç°µÄmq£¬²»ÔÚ±¾´ÎµÄmqSet
-                // Èç¹û¶ÓÁĞ²»ÔÚĞÂ·ÖÅä¶ÓÁĞ¼¯ºÏÖĞ£¬ĞèÒª½«¸Ã¶ÓÁĞÍ£Ö¹Ïû·Ñ²¢±£´æÏû·Ñ½ø¶È
+                // å¦‚æœä¹‹å‰çš„mqï¼Œä¸åœ¨æœ¬æ¬¡çš„mqSet
+                // å¦‚æœé˜Ÿåˆ—ä¸åœ¨æ–°åˆ†é…é˜Ÿåˆ—é›†åˆä¸­ï¼Œéœ€è¦å°†è¯¥é˜Ÿåˆ—åœæ­¢æ¶ˆè´¹å¹¶ä¿å­˜æ¶ˆè´¹è¿›åº¦
                 if (!mqSet.contains(mq)) {
                     pq.setDropped(true);
-                    // ½«²»±ØÒªµÄQueue´ÓÄÚ´æ»º´æÖĞÒÆ³ı£¬²¢³Ö¾Ã»¯£¨¼¯ÈºÄ£Ê½£ºÏòBroker£©µ±Ç°QueueµÄÏû·ÑÆ«ÒÆÁ¿
+                    // å°†ä¸å¿…è¦çš„Queueä»å†…å­˜ç¼“å­˜ä¸­ç§»é™¤ï¼Œå¹¶æŒä¹…åŒ–ï¼ˆé›†ç¾¤æ¨¡å¼ï¼šå‘Brokerï¼‰å½“å‰Queueçš„æ¶ˆè´¹åç§»é‡
                     if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                         it.remove();
                         changed = true;
                         log.info("doRebalance, {}, remove unnecessary mq, {}", consumerGroup, mq);
                     }
                 }
-                // ÅĞ¶Ï ProcessQueue ÊÇ·ñÒÑ¾­¹ıÆÚ
-                // (System.currentTimeMillis() - this.lastPullTimestamp) > PULL_MAX_IDLE_TIME£¨120s£©
+                // åˆ¤æ–­ ProcessQueue æ˜¯å¦å·²ç»è¿‡æœŸ
+                // (System.currentTimeMillis() - this.lastPullTimestamp) > PULL_MAX_IDLE_TIMEï¼ˆ120sï¼‰
                 else if (pq.isPullExpired()) {
                     switch (this.consumeType()) {
-                        case CONSUME_ACTIVELY:  // pullÄ£Ê½
+                        case CONSUME_ACTIVELY:  // pullæ¨¡å¼
                             break;
-                        case CONSUME_PASSIVELY:  // pushÄ£Ê½
+                        case CONSUME_PASSIVELY:  // pushæ¨¡å¼
                             pq.setDropped(true);
                             if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                                 it.remove();
@@ -437,11 +437,11 @@ public abstract class RebalanceImpl {
 
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
         /**
-         * ±éÀúÒÑ·ÖÅäµÄ¶ÓÁĞ
-         * Èç¹û¶ÓÁĞ ²»ÔÚ¶ÓÁĞ¸ºÔØ±íÖĞ£¨processQueueTable£©£¬ÔòĞèÒª´´½¨¸Ã¶ÓÁĞÀ­È¡ÈÎÎñ PullRequest
+         * éå†å·²åˆ†é…çš„é˜Ÿåˆ—
+         * å¦‚æœé˜Ÿåˆ— ä¸åœ¨é˜Ÿåˆ—è´Ÿè½½è¡¨ä¸­ï¼ˆprocessQueueTableï¼‰ï¼Œåˆ™éœ€è¦åˆ›å»ºè¯¥é˜Ÿåˆ—æ‹‰å–ä»»åŠ¡ PullRequest
          */
         for (MessageQueue mq : mqSet) {
-            // ²»ÔÚµ±Ç°Ïû·ÑÕß¸ºÔØµÄÏûÏ¢¶ÓÁĞ»º´æ±íÖĞ£¨processQueueTable£©£¬ËµÃ÷ÊÇĞÂ¸ºÔØ¸øµ±Ç°ConsumeµÄ
+            // ä¸åœ¨å½“å‰æ¶ˆè´¹è€…è´Ÿè½½çš„æ¶ˆæ¯é˜Ÿåˆ—ç¼“å­˜è¡¨ä¸­ï¼ˆprocessQueueTableï¼‰ï¼Œè¯´æ˜æ˜¯æ–°è´Ÿè½½ç»™å½“å‰Consumeçš„
             if (!this.processQueueTable.containsKey(mq)) {
                 if (isOrder && !this.lock(mq)) {
                     log.warn("doRebalance, {}, add a new mq failed, {}, because lock failed", consumerGroup, mq);
@@ -450,7 +450,7 @@ public abstract class RebalanceImpl {
 
                 this.removeDirtyOffset(mq);
                 ProcessQueue pq = new ProcessQueue();
-                //¡¾ ¸ù¾İ ConsumeFromWhere ¼ÆËãQueueµÄÏÂÒ»¸öÀ­È¡Æ«ÒÆÁ¿£¬¼´¼ÆËãPullRequestµÄnextOffset ¡¿
+                //ã€ æ ¹æ® ConsumeFromWhere è®¡ç®—Queueçš„ä¸‹ä¸€ä¸ªæ‹‰å–åç§»é‡ï¼Œå³è®¡ç®—PullRequestçš„nextOffset ã€‘
                 long nextOffset = this.computePullFromWhere(mq);
                 if (nextOffset >= 0) {
                     ProcessQueue pre = this.processQueueTable.putIfAbsent(mq, pq);
@@ -467,15 +467,15 @@ public abstract class RebalanceImpl {
                         changed = true;
                     }
                 }
-                else { // Æ½ºâÏûÏ¢¶ÓÁĞºó£¬Ìí¼ÓĞÂ¶ÓÁĞÊ§°Ü£¬ÒòÎª nextOffset < 0
+                else { // å¹³è¡¡æ¶ˆæ¯é˜Ÿåˆ—åï¼Œæ·»åŠ æ–°é˜Ÿåˆ—å¤±è´¥ï¼Œå› ä¸º nextOffset < 0
                     log.warn("doRebalance, {}, add new mq failed, {}", consumerGroup, mq);
                 }
             }
         }
 
         /**
-         * ·ÖÅä PullRequest
-         * ½«PullÏûÏ¢µÄÇëÇó¶ÔÏóPullRequestÒÀ´Î·ÅÈëPullMessageService·şÎñÏß³ÌµÄ×èÈû¶ÓÁĞpullRequestQueueÖĞ£¬´ı¸Ã·şÎñÏß³ÌÈ¡³öºóÏòBroker¶Ë·¢ÆğPullÏûÏ¢µÄÇëÇó
+         * åˆ†é… PullRequest
+         * å°†Pullæ¶ˆæ¯çš„è¯·æ±‚å¯¹è±¡PullRequestä¾æ¬¡æ”¾å…¥PullMessageServiceæœåŠ¡çº¿ç¨‹çš„é˜»å¡é˜Ÿåˆ—pullRequestQueueä¸­ï¼Œå¾…è¯¥æœåŠ¡çº¿ç¨‹å–å‡ºåå‘Brokerç«¯å‘èµ·Pullæ¶ˆæ¯çš„è¯·æ±‚
          * this.defaultMQPushConsumerImpl.executePullRequestImmediately(pullRequest)
          */
         this.dispatchPullRequest(pullRequestList);

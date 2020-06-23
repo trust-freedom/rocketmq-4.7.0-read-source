@@ -231,6 +231,7 @@ public class ProcessQueue {
                 if (!msgTreeMap.isEmpty()) {
                     result = this.queueOffsetMax + 1;
                     int removedCnt = 0;
+                    // 遍历删除msgs，并统计删除数量 和 删除大小
                     for (MessageExt msg : msgs) {
                         MessageExt prev = msgTreeMap.remove(msg.getQueueOffset());
                         if (prev != null) {
@@ -240,6 +241,7 @@ public class ProcessQueue {
                     }
                     msgCount.addAndGet(removedCnt);
 
+                    // msgTreeMap不为空，以firstKey（最小偏移量）作为返回值
                     if (!msgTreeMap.isEmpty()) {
                         result = msgTreeMap.firstKey();
                     }
@@ -298,12 +300,14 @@ public class ProcessQueue {
 
     /**
      * 顺序消费成功时会commit
+     * 返回本次顺序消费的consumingMsgOrderlyTreeMap中的最大偏移量，即待更新偏移量
      * @return
      */
     public long commit() {
         try {
             this.lockTreeMap.writeLock().lockInterruptibly();
             try {
+                // 本次消费的consumingMsgOrderlyTreeMap中的最大偏移量
                 Long offset = this.consumingMsgOrderlyTreeMap.lastKey();
 
                 // 消息数量减去consumingMsgOrderlyTreeMap.size()

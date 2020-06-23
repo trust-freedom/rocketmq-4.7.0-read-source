@@ -42,14 +42,19 @@ public class BrokerConfig {
     private long brokerId = MixAll.MASTER_ID;
     private int brokerPermission = PermName.PERM_READ | PermName.PERM_WRITE;
     private int defaultTopicQueueNums = 8;
+
+    // 是否允许自助创建Topic
     @ImportantField
     private boolean autoCreateTopicEnable = true;
 
     private boolean clusterTopicEnable = true;
 
     private boolean brokerTopicEnable = true;
+
+    // 是否允许自动创建订阅关系
     @ImportantField
     private boolean autoCreateSubscriptionGroup = true;
+
     private String messageStorePlugIn = "";
     @ImportantField
     private String msgTraceTopicName = MixAll.RMQ_SYS_TRACE_TOPIC;
