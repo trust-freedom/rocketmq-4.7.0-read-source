@@ -199,7 +199,7 @@ public abstract class NettyRemotingAbstract {
 
         // 有可用的 Pair<NettyRequestProcessor, ExecutorService>
         if (pair != null) {
-            // 创建人物
+            // 创建任务
             Runnable run = new Runnable() {
                 @Override
                 public void run() {
