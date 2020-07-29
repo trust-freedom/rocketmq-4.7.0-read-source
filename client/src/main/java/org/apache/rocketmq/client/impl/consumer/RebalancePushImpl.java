@@ -82,19 +82,19 @@ public class RebalancePushImpl extends RebalanceImpl {
     }
 
     /**
-     * ½«²»±ØÒªµÄQueue´ÓÄÚ´æ»º´æÖĞÒÆ³ı£¬²¢³Ö¾Ã»¯£¨¼¯ÈºÄ£Ê½£ºÏòBroker£©µ±Ç°QueueµÄÏû·ÑÆ«ÒÆÁ¿
+     * å°†ä¸å¿…è¦çš„Queueä»å†…å­˜ç¼“å­˜ä¸­ç§»é™¤ï¼Œå¹¶æŒä¹…åŒ–ï¼ˆé›†ç¾¤æ¨¡å¼ï¼šå‘Brokerï¼‰å½“å‰Queueçš„æ¶ˆè´¹åç§»é‡
      * @param mq
      * @param pq
      * @return
      */
     @Override
     public boolean removeUnnecessaryMessageQueue(MessageQueue mq, ProcessQueue pq) {
-        // ¼¯ÈºÄ£Ê½£ºRemoteBrokerOffsetStore
-        // ¹ã²¥Ä£Ê½£ºLocalFileOffsetStore
-        this.defaultMQPushConsumerImpl.getOffsetStore().persist(mq);  // ¼¯ÈºÄ£Ê½£ºÏòBroker¸üĞÂÏû·ÑÆ«ÒÆÁ¿
-        this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq); // ¼¯ÈºÄ£Ê½£ºÄÚ´æÎ¬»¤µÄ ConcurrentMap<MessageQueue, AtomicLong> offsetTable É¾³ıµ±Ç°Queue
+        // é›†ç¾¤æ¨¡å¼ï¼šRemoteBrokerOffsetStore
+        // å¹¿æ’­æ¨¡å¼ï¼šLocalFileOffsetStore
+        this.defaultMQPushConsumerImpl.getOffsetStore().persist(mq);  // é›†ç¾¤æ¨¡å¼ï¼šå‘Brokeræ›´æ–°æ¶ˆè´¹åç§»é‡
+        this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq); // é›†ç¾¤æ¨¡å¼ï¼šå†…å­˜ç»´æŠ¤çš„ ConcurrentMap<MessageQueue, AtomicLong> offsetTable åˆ é™¤å½“å‰Queue
 
-        // Ë³ĞòÏû·Ñ && ¼¯ÈºÏû·Ñ
+        // é¡ºåºæ¶ˆè´¹ && é›†ç¾¤æ¶ˆè´¹
         if (this.defaultMQPushConsumerImpl.isConsumeOrderly()
             && MessageModel.CLUSTERING.equals(this.defaultMQPushConsumerImpl.messageModel())) {
             try {
@@ -148,89 +148,89 @@ public class RebalancePushImpl extends RebalanceImpl {
     }
 
     /**
-     * ¼ÆËãMessageQueueµÄÀ­È¡Æ«ÒÆÁ¿
+     * è®¡ç®—MessageQueueçš„æ‹‰å–åç§»é‡
      * @param mq
      * @return
      */
     @Override
     public long computePullFromWhere(MessageQueue mq) {
         long result = -1;
-        // ´´½¨Ïû·ÑÕßÊ±ÉèÖÃµÄ"´ÓÄÄ¶ù¿ªÊ¼Ïû·Ñ"£¬Ä¬ÈÏ CONSUME_FROM_LAST_OFFSET  ´Ó¶ÓÁĞ×îĞÂÆ«ÒÆÁ¿¿ªÊ¼Ïû·Ñ
+        // åˆ›å»ºæ¶ˆè´¹è€…æ—¶è®¾ç½®çš„"ä»å“ªå„¿å¼€å§‹æ¶ˆè´¹"ï¼Œé»˜è®¤ CONSUME_FROM_LAST_OFFSET  ä»é˜Ÿåˆ—æœ€æ–°åç§»é‡å¼€å§‹æ¶ˆè´¹
         final ConsumeFromWhere consumeFromWhere = this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere();
         final OffsetStore offsetStore = this.defaultMQPushConsumerImpl.getOffsetStore();
         switch (consumeFromWhere) {
             case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:
             case CONSUME_FROM_MIN_OFFSET:
             case CONSUME_FROM_MAX_OFFSET:
-            case CONSUME_FROM_LAST_OFFSET: {  // ´Ó¶ÓÁĞ×îĞÂÆ«ÒÆÁ¿¿ªÊ¼Ïû·Ñ£¨¼¯ÈºÄ£Ê½£º´ÓBroker»ñÈ¡£©
-                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE); // RemoteBrokerOffsetStore + READ_FROM_STORE£º´ÓBroker»ñÈ¡offset
+            case CONSUME_FROM_LAST_OFFSET: {  // ä»é˜Ÿåˆ—æœ€æ–°åç§»é‡å¼€å§‹æ¶ˆè´¹ï¼ˆé›†ç¾¤æ¨¡å¼ï¼šä»Brokerè·å–ï¼‰
+                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE); // RemoteBrokerOffsetStore + READ_FROM_STOREï¼šä»Brokerè·å–offset
 
                 /**
-                 * Èç¹û·µ»ØµÄÆ«ÒÆÁ¿´óÓÚµÈÓÚ0£¬ÔòÖ±½ÓÊ¹ÓÃ¸Ãoffset
-                 * ´óÓÚµÈÓÚ0£¬±íÊ¾²éÑ¯µ½ÓĞĞ§µÄÏûÏ¢Ïû·Ñ½ø¶È£¬´Ó¸ÃÓĞĞ§½ø¶È¿ªÊ¼Ïû·Ñ
-                 * µ«ÎÒÃÇÒªÌØ±ğÁôÒâlastOffsetÎª0ÊÇÊ²Ã´³¡¾°£¬ÒòÎª·µ»Ø0£¬²¢²»»áÖ´ĞĞCONSUME_FROM_LAST_OFFSET£¨ÓïÒå£©
+                 * å¦‚æœè¿”å›çš„åç§»é‡å¤§äºç­‰äº0ï¼Œåˆ™ç›´æ¥ä½¿ç”¨è¯¥offset
+                 * å¤§äºç­‰äº0ï¼Œè¡¨ç¤ºæŸ¥è¯¢åˆ°æœ‰æ•ˆçš„æ¶ˆæ¯æ¶ˆè´¹è¿›åº¦ï¼Œä»è¯¥æœ‰æ•ˆè¿›åº¦å¼€å§‹æ¶ˆè´¹
+                 * ä½†æˆ‘ä»¬è¦ç‰¹åˆ«ç•™æ„lastOffsetä¸º0æ˜¯ä»€ä¹ˆåœºæ™¯ï¼Œå› ä¸ºè¿”å›0ï¼Œå¹¶ä¸ä¼šæ‰§è¡ŒCONSUME_FROM_LAST_OFFSETï¼ˆè¯­ä¹‰ï¼‰
                  *
-                 * Broker¶Ë£ºConsumerManageProcessor#queryConsumerOffset()  £¨ConsumeQueue´æ´¢Ä¿Â¼ÏÂÃû×ÖÅÅĞò×îĞ¡µÄÎÄ¼ş ¾ÍÊÇ MinOffsetInQueue£©
-                 * Èç¹û store/config/offset.json ÖĞÓĞÊı¾İ£¬¾Í¸ù¾İÊı¾İ·µ»Øoffset
-                 * Èç¹û store/config/offset.json ÖĞÃ»ÓĞÊı¾İ£¬¼ÆËã ConsumeQueue.getMinOffsetInQueue() ×îĞ¡Æ«ÒÆÁ¿
-                 *   Èç¹û MinOffsetInQueue <=0 ÇÒ ×îĞ¡Æ«ÒÆÁ¿¶ÔÓ¦µÄÏûÏ¢´æ´¢ÔÚÄÚ´æÖĞ¶ø²»ÊÇ´æÔÚ´ÅÅÌÖĞ£¬Ôò·µ»ØÆ«ÒÆÁ¿0£¬Õâ¾Í»á´ÓÍ·¿ªÊ¼Ïû·Ñ£¨²»Âú×ã CONSUME_FROM_LAST_OFFSET ÓïÒå£©
-                 *   ÆäËüÇé¿ö£¬lastOffset ·µ»Ø -1£¬ÆÕÍ¨Topic£¬´ÓMessageQueueµÄ×î´óÆ«ÒÆÁ¿¿ªÊ¼£¨Âú×ã CONSUME_FROM_LAST_OFFSET ÓïÒå£©
+                 * Brokerç«¯ï¼šConsumerManageProcessor#queryConsumerOffset()  ï¼ˆConsumeQueueå­˜å‚¨ç›®å½•ä¸‹åå­—æ’åºæœ€å°çš„æ–‡ä»¶ å°±æ˜¯ MinOffsetInQueueï¼‰
+                 * å¦‚æœ store/config/offset.json ä¸­æœ‰æ•°æ®ï¼Œå°±æ ¹æ®æ•°æ®è¿”å›offset
+                 * å¦‚æœ store/config/offset.json ä¸­æ²¡æœ‰æ•°æ®ï¼Œè®¡ç®— ConsumeQueue.getMinOffsetInQueue() æœ€å°åç§»é‡
+                 *   å¦‚æœ MinOffsetInQueue <=0 ä¸” æœ€å°åç§»é‡å¯¹åº”çš„æ¶ˆæ¯å­˜å‚¨åœ¨å†…å­˜ä¸­è€Œä¸æ˜¯å­˜åœ¨ç£ç›˜ä¸­ï¼Œåˆ™è¿”å›åç§»é‡0ï¼Œè¿™å°±ä¼šä»å¤´å¼€å§‹æ¶ˆè´¹ï¼ˆä¸æ»¡è¶³ CONSUME_FROM_LAST_OFFSET è¯­ä¹‰ï¼‰
+                 *   å…¶å®ƒæƒ…å†µï¼ŒlastOffset è¿”å› -1ï¼Œæ™®é€šTopicï¼Œä»MessageQueueçš„æœ€å¤§åç§»é‡å¼€å§‹ï¼ˆæ»¡è¶³ CONSUME_FROM_LAST_OFFSET è¯­ä¹‰ï¼‰
                  */
                 if (lastOffset >= 0) {
                     result = lastOffset;
                 }
                 // First start,no offset
                 /**
-                 * Èç¹ûlastOffsetÎª-1£¬±íÊ¾µ±Ç°²¢Î´´æ´¢ÆäÓĞĞ§Æ«ÒÆÁ¿£¬¿ÉÒÔÀí½âÎªµÚÒ»´ÎÏû·Ñ
-                 * Èç¹ûÊÇÏû·Ñ×éÖØÊÔÖ÷Ìâ£¬´ÓÖØÊÔ¶ÓÁĞÆ«ÒÆÁ¿Îª0¿ªÊ¼Ïû·Ñ
-                 * Èç¹ûÊÇÆÕÍ¨Ö÷Ìâ£¬Ôò´Ó¶ÓÁĞµ±Ç°µÄ×î´óµÄÓĞĞ§Æ«ÒÆÁ¿¿ªÊ¼Ïû·Ñ£¬¼´CONSUME_FROM_LAST_OFFSETÓïÒåµÄÊµÏÖ
+                 * å¦‚æœlastOffsetä¸º-1ï¼Œè¡¨ç¤ºå½“å‰å¹¶æœªå­˜å‚¨å…¶æœ‰æ•ˆåç§»é‡ï¼Œå¯ä»¥ç†è§£ä¸ºç¬¬ä¸€æ¬¡æ¶ˆè´¹
+                 * å¦‚æœæ˜¯æ¶ˆè´¹ç»„é‡è¯•ä¸»é¢˜ï¼Œä»é‡è¯•é˜Ÿåˆ—åç§»é‡ä¸º0å¼€å§‹æ¶ˆè´¹
+                 * å¦‚æœæ˜¯æ™®é€šä¸»é¢˜ï¼Œåˆ™ä»é˜Ÿåˆ—å½“å‰çš„æœ€å¤§çš„æœ‰æ•ˆåç§»é‡å¼€å§‹æ¶ˆè´¹ï¼Œå³CONSUME_FROM_LAST_OFFSETè¯­ä¹‰çš„å®ç°
                  */
                 else if (-1 == lastOffset) {
-                    // %RETRY%£¬´Ó0¿ªÊ¼
+                    // %RETRY%ï¼Œä»0å¼€å§‹
                     if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         result = 0L;
                     }
-                    // ÆÕÍ¨Topic£¬´ÓMessageQueueµÄ×î´óÆ«ÒÆÁ¿¿ªÊ¼£¨ConsumeQueueµ±Ç°µÄ×î´óÆ«ÒÆÁ¿£©
+                    // æ™®é€šTopicï¼Œä»MessageQueueçš„æœ€å¤§åç§»é‡å¼€å§‹ï¼ˆConsumeQueueå½“å‰çš„æœ€å¤§åç§»é‡ï¼‰
                     else {
                         try {
-                            // ²éÑ¯Ä³¸öTopicµÄÄ³¸öQueueµÄ×î´óÆ«ÒÆÁ¿
+                            // æŸ¥è¯¢æŸä¸ªTopicçš„æŸä¸ªQueueçš„æœ€å¤§åç§»é‡
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
                         } catch (MQClientException e) {
                             result = -1;
                         }
                     }
                 }
-                // ÓĞ´íÎó
+                // æœ‰é”™è¯¯
                 else {
                     result = -1;
                 }
                 break;
             }
-            case CONSUME_FROM_FIRST_OFFSET: { // ´ÓÍ·¿ªÊ¼Ïû·Ñ
-                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE); // RemoteBrokerOffsetStore + READ_FROM_STORE£º´ÓBroker»ñÈ¡offset
-                // Èç¹û´ÓBroker»ñÈ¡ÁËlastOffset>0£¬Ö±½ÓÊ¹ÓÃ
+            case CONSUME_FROM_FIRST_OFFSET: {  // ä»å¤´å¼€å§‹æ¶ˆè´¹
+                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE); // RemoteBrokerOffsetStore + READ_FROM_STOREï¼šä»Brokerè·å–offset
+                // å¦‚æœä»Brokerè·å–äº†lastOffset>0ï¼Œç›´æ¥ä½¿ç”¨
                 if (lastOffset >= 0) {
                     result = lastOffset;
                 }
-                // Èç¹û lastOffset == -1£¬Ö±½Ó´Ó0¿ªÊ¼¡¾²»Í¬µã¡¿
-                // ¿ÉÄÜ MQBrokerException No offset in broker
+                // å¦‚æœ lastOffset == -1ï¼Œç›´æ¥ä»0å¼€å§‹ã€ä¸åŒç‚¹ã€‘
+                // å¯èƒ½ MQBrokerException No offset in broker
                 else if (-1 == lastOffset) {
                     result = 0L;
                 }
-                // ÓĞ´íÎó
+                // æœ‰é”™è¯¯
                 else {
                     result = -1;
                 }
                 break;
             }
-            case CONSUME_FROM_TIMESTAMP: { // ´ÓÏû·ÑÕßÆô¶¯µÄÊ±¼ä´Á¶ÔÓ¦µÄÏû·Ñ½ø¶È¿ªÊ¼Ïû·Ñ£¨Ä¬ÈÏÊÇÏû·ÑÕßÆô¶¯Ö®Ç°µÄ°ëĞ¡Ê±£©
+            case CONSUME_FROM_TIMESTAMP: { // ä»æ¶ˆè´¹è€…å¯åŠ¨çš„æ—¶é—´æˆ³å¯¹åº”çš„æ¶ˆè´¹è¿›åº¦å¼€å§‹æ¶ˆè´¹ï¼ˆé»˜è®¤æ˜¯æ¶ˆè´¹è€…å¯åŠ¨ä¹‹å‰çš„åŠå°æ—¶ï¼‰
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
 
                 if (lastOffset >= 0) {
                     result = lastOffset;
                 }
                 else if (-1 == lastOffset) {
-                    // %RETRY%£¬´ÓMessageQueueµÄ×î´óÆ«ÒÆÁ¿¿ªÊ¼
+                    // %RETRY%ï¼Œä»MessageQueueçš„æœ€å¤§åç§»é‡å¼€å§‹
                     if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         try {
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
@@ -238,7 +238,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                             result = -1;
                         }
                     }
-                    // ÆÕÍ¨Topic£¬¸ù¾İÏû·ÑÕßÆô¶¯Ê±¼ä´ÁÈ¥²éÕÒMessageQueueµÄÀ­È¡Æ«ÒÆÁ¿
+                    // æ™®é€šTopicï¼Œæ ¹æ®æ¶ˆè´¹è€…å¯åŠ¨æ—¶é—´æˆ³å»æŸ¥æ‰¾MessageQueueçš„æ‹‰å–åç§»é‡
                     else {
                         try {
                             long timestamp = UtilAll.parseDate(this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getConsumeTimestamp(),
@@ -249,7 +249,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                         }
                     }
                 }
-                // ÓĞ´íÎó
+                // æœ‰é”™è¯¯
                 else {
                     result = -1;
                 }
